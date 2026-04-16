@@ -19,7 +19,8 @@ export default function BottomNav() {
     <nav className="sticky bottom-0 z-50 border-t border-gray-200 bg-white">
       <div className="flex items-center justify-around py-2">
         {navItems.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href;
+          const isActive =
+            href === '/' ? pathname === '/' : pathname.startsWith(href);
           return (
             <Link
               key={href}
