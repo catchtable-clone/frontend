@@ -5,15 +5,19 @@ import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { mockStores } from '@/lib/mockData';
+
+interface MarkerEntry {
+  store: (typeof mockStores)[0];
+  marker: kakao.maps.Marker;
+  infoWindow: kakao.maps.InfoWindow;
+}
 
 function MapContent() {
   const mapRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<
-    { store: (typeof mockStores)[0]; marker: kakao.maps.Marker; infoWindow: kakao.maps.InfoWindow }[]
-  >([]);
+  const mapInstanceRef = useRef<kakao.maps.Map | null>(null);
+  const markersRef = useRef<MarkerEntry[]>([]);
   const openInfoWindowRef = useRef<kakao.maps.InfoWindow | null>(null);
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const searchParams = useSearchParams();
@@ -22,28 +26,19 @@ function MapContent() {
   const targetLng = searchParams.get('lng');
   const targetStoreId = searchParams.get('storeId');
 
-  const initMap = useCallback(() => {
-    if (!mapRef.current) return;
+  const clearMarkers = useCallback(() => {
+    markersRef.current.forEach(({ marker }) => marker.setMap(null));
+    markersRef.current = [];
+    openInfoWindowRef.current = null;
+  }, []);
 
-    kakao.maps.load(() => {
-      const centerLat = targetLat ? parseFloat(targetLat) : 37.4979;
-      const centerLng = targetLng ? parseFloat(targetLng) : 127.0276;
-      const zoomLevel = targetStoreId ? 3 : 7;
-
-      const map = new kakao.maps.Map(mapRef.current!, {
-        center: new kakao.maps.LatLng(centerLat, centerLng),
-        level: zoomLevel,
-      });
-      mapInstanceRef.current = map;
-      markersRef.current = [];
-
+  const addMarkers = useCallback(
+    (map: kakao.maps.Map) => {
       mockStores.forEach((store) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const maps = kakao.maps as any;
         const markerImage = store.isClosed
-          ? new maps.MarkerImage(
+          ? new kakao.maps.MarkerImage(
               'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
-              new maps.Size(24, 35),
+              new kakao.maps.Size(24, 35),
             )
           : undefined;
 
@@ -79,8 +74,35 @@ function MapContent() {
           openInfoWindowRef.current = infoWindow;
         }
       });
+    },
+    [targetStoreId],
+  );
+
+  const initMap = useCallback(() => {
+    if (!mapRef.current) return;
+
+    kakao.maps.load(() => {
+      const centerLat = targetLat ? parseFloat(targetLat) : 37.4979;
+      const centerLng = targetLng ? parseFloat(targetLng) : 127.0276;
+      const zoomLevel = targetStoreId ? 3 : 7;
+      const center = new kakao.maps.LatLng(centerLat, centerLng);
+
+      if (mapInstanceRef.current) {
+        const map = mapInstanceRef.current;
+        map.setCenter(center);
+        map.setLevel(zoomLevel);
+        clearMarkers();
+        addMarkers(map);
+      } else {
+        const map = new kakao.maps.Map(mapRef.current!, {
+          center,
+          level: zoomLevel,
+        });
+        mapInstanceRef.current = map;
+        addMarkers(map);
+      }
     });
-  }, [targetLat, targetLng, targetStoreId]);
+  }, [targetLat, targetLng, targetStoreId, clearMarkers, addMarkers]);
 
   useEffect(() => {
     if (sdkLoaded) {
@@ -136,7 +158,13 @@ function MapContent() {
 
 export default function MapPage() {
   return (
-    <Suspense>
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center">
+          <LoadingSpinner />
+        </div>
+      }
+    >
       <MapContent />
     </Suspense>
   );

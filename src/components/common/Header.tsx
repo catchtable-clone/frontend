@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, Map, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -21,6 +21,10 @@ export default function Header({
 }: HeaderProps) {
   const router = useRouter();
   const [query, setQuery] = useState(defaultQuery);
+
+  useEffect(() => {
+    setQuery(defaultQuery);
+  }, [defaultQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

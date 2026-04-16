@@ -76,7 +76,7 @@ export default function StoreDetail({
     if (!selectedTime) return;
     setShowTimeModal(false);
     router.push(
-      `/reservation?storeId=${store.id}&date=${selectedDate.toISOString().split('T')[0]}&time=${selectedTime}`,
+      `/reservation?storeId=${store.id}&date=${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}&time=${selectedTime}`,
     );
   };
 

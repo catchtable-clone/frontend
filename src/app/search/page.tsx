@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
 import StoreCard from '@/components/store/StoreCard';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { mockStores } from '@/lib/mockData';
 
 function SearchContent() {
@@ -46,7 +47,13 @@ function SearchContent() {
 
 export default function SearchPage() {
   return (
-    <Suspense>
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center">
+          <LoadingSpinner />
+        </div>
+      }
+    >
       <SearchContent />
     </Suspense>
   );

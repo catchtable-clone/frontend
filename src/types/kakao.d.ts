@@ -4,14 +4,29 @@ declare namespace kakao.maps {
       container: HTMLElement,
       options: { center: LatLng; level: number },
     );
+    setCenter(position: LatLng): void;
+    setLevel(level: number): void;
   }
 
   class LatLng {
     constructor(lat: number, lng: number);
   }
 
+  class Size {
+    constructor(width: number, height: number);
+  }
+
+  class MarkerImage {
+    constructor(src: string, size: Size);
+  }
+
   class Marker {
-    constructor(options: { position: LatLng; map?: Map });
+    constructor(options: {
+      position: LatLng;
+      map?: Map;
+      image?: MarkerImage;
+      opacity?: number;
+    });
     setMap(map: Map | null): void;
   }
 
