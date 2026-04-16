@@ -9,20 +9,12 @@ import { useAuthStore } from '@/stores/authStore';
 
 export default function MyPage() {
   const router = useRouter();
-  const { accessToken, setAccessToken, logout } = useAuthStore();
+  const { accessToken, logout } = useAuthStore();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('accessToken');
-    if (savedToken && !accessToken) {
-      setAccessToken(savedToken);
-    }
-    setIsLoggedIn(!!accessToken || !!savedToken);
-  }, [accessToken, setAccessToken]);
-
-  const handleLogout = () => {
-    logout();
-  };
+    setIsLoggedIn(!!accessToken);
+  }, [accessToken]);
 
   return (
     <>
@@ -60,7 +52,7 @@ export default function MyPage() {
                 고객센터
               </button>
               <button
-                onClick={handleLogout}
+                onClick={logout}
                 className="flex items-center gap-3 px-2 py-4 text-sm text-red-500"
               >
                 <LogOut size={20} />
