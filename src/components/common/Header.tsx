@@ -1,14 +1,19 @@
 'use client';
 
-import { Search, Map } from 'lucide-react';
+import { Search, Map, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface HeaderProps {
   title?: string;
   showSearch?: boolean;
+  showBack?: boolean;
 }
 
-export default function Header({ title, showSearch = false }: HeaderProps) {
+export default function Header({
+  title,
+  showSearch = false,
+  showBack = false,
+}: HeaderProps) {
   const router = useRouter();
 
   if (showSearch) {
@@ -36,7 +41,12 @@ export default function Header({ title, showSearch = false }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
-      <div className="flex h-[52px] items-center px-4">
+      <div className="flex h-[52px] items-center gap-3 px-4">
+        {showBack && (
+          <button onClick={() => router.back()}>
+            <ArrowLeft size={22} className="text-gray-700" />
+          </button>
+        )}
         <h1 className="text-lg font-semibold">{title}</h1>
       </div>
     </header>

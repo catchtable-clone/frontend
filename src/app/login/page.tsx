@@ -67,7 +67,7 @@ function LoginContent() {
 
 export default function Login() {
   return (
-    <Suspense>
+    <Suspense fallback={null}>
       <LoginContent />
     </Suspense>
   );
