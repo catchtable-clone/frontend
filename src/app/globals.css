@@ -24,3 +24,15 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.rdp-selected .rdp-day_button {
+  background-color: #f97316 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 50% !important;
+}
+
+.rdp-today:not(.rdp-selected) .rdp-day_button {
+  color: #f97316 !important;
+  font-weight: 700;
+}
