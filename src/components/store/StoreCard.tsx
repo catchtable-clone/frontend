@@ -7,13 +7,21 @@ interface StoreCardProps {
 }
 
 export default function StoreCard({ store }: StoreCardProps) {
+  const isClosed = store.isClosed ?? false;
+
   return (
     <Link
       href={`/stores/${store.id}`}
-      className="flex gap-4 border-b border-gray-100 py-4"
+      className={`flex gap-4 border-b border-gray-100 py-4 ${isClosed ? 'opacity-50' : ''}`}
     >
       {/* 매장 이미지 */}
-      <div className="h-20 w-20 flex-shrink-0 rounded-lg bg-gray-200" />
+      <div className="relative h-20 w-20 flex-shrink-0 rounded-lg bg-gray-200">
+        {isClosed && (
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-gray-700 px-2 py-0.5 text-[10px] font-semibold text-white">
+            휴업중
+          </span>
+        )}
+      </div>
 
       {/* 매장 정보 */}
       <div className="flex flex-1 flex-col gap-1">
@@ -29,7 +37,7 @@ export default function StoreCard({ store }: StoreCardProps) {
           </span>
           <span className="flex items-center gap-1">
             <Clock size={12} />
-            {store.openTime} - {store.closeTime}
+            {isClosed ? '휴업중' : `${store.openTime} - ${store.closeTime}`}
           </span>
         </div>
       </div>

@@ -36,8 +36,9 @@ export default function Home() {
           </h2>
           <div className="flex gap-3 overflow-x-auto">
             {popularStores.map((store) => (
-              <div
+              <Link
                 key={store.id}
+                href={`/stores/${store.id}`}
                 className="flex w-36 flex-shrink-0 flex-col gap-2"
               >
                 <div className="h-24 w-full rounded-lg bg-gray-200" />
@@ -47,7 +48,7 @@ export default function Home() {
                   </p>
                   <p className="text-xs text-gray-500">{store.category}</p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </section>

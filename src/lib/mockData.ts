@@ -1,4 +1,4 @@
-import { Store, Category } from '@/types/store';
+import { Store, Menu, Category } from '@/types/store';
 
 export const mockCategories: Category[] = [
   { id: 1, name: '한식', icon: '🍚' },
@@ -50,6 +50,7 @@ export const mockStores: Store[] = [
     closeTime: '21:30',
     lat: 37.5596,
     lng: 126.9239,
+    isClosed: true,
   },
   {
     id: 4,
@@ -76,6 +77,7 @@ export const mockStores: Store[] = [
     closeTime: '21:30',
     lat: 37.566,
     lng: 126.9921,
+    isClosed: true,
   },
   {
     id: 6,
@@ -91,3 +93,44 @@ export const mockStores: Store[] = [
     lng: 127.0557,
   },
 ];
+
+// 매장별 마감된 날짜 (오늘 기준 offset일 후)
+export const mockFullyBookedDays: Record<number, number[]> = {
+  1: [1, 3, 5],
+  2: [0, 2, 4],
+  3: [2, 6],
+  4: [1, 4],
+  5: [3, 5],
+  6: [0, 3],
+};
+
+export const mockMenus: Record<number, Menu[]> = {
+  1: [
+    { id: 1, name: '오마카세 코스', price: 150000, description: '셰프 추천 12가지 코스', imageUrl: '' },
+    { id: 2, name: '스페셜 코스', price: 200000, description: '프리미엄 재료 15가지 코스', imageUrl: '' },
+    { id: 3, name: '런치 코스', price: 80000, description: '점심 한정 8가지 코스', imageUrl: '' },
+  ],
+  2: [
+    { id: 4, name: '한우 코스', price: 120000, description: '한우 모둠 + 사이드', imageUrl: '' },
+    { id: 5, name: '제철 코스', price: 90000, description: '계절 재료 한상', imageUrl: '' },
+  ],
+  3: [
+    { id: 6, name: '마르게리타', price: 18000, description: '토마토, 모짜렐라, 바질', imageUrl: '' },
+    { id: 7, name: '페퍼로니', price: 20000, description: '매콤한 페퍼로니', imageUrl: '' },
+    { id: 8, name: '트러플 피자', price: 28000, description: '트러플 오일 + 버섯', imageUrl: '' },
+  ],
+  4: [
+    { id: 9, name: '돈코츠 라멘', price: 12000, description: '진한 돼지뼈 육수', imageUrl: '' },
+    { id: 10, name: '쇼유 라멘', price: 11000, description: '간장 베이스 담백한 맛', imageUrl: '' },
+  ],
+  5: [
+    { id: 11, name: '짜장면', price: 9000, description: '수제 춘장 짜장', imageUrl: '' },
+    { id: 12, name: '짬뽕', price: 10000, description: '얼큰한 해물 짬뽕', imageUrl: '' },
+    { id: 13, name: '탕수육', price: 22000, description: '바삭한 찹쌀 탕수육', imageUrl: '' },
+  ],
+  6: [
+    { id: 14, name: '아메리카노', price: 5000, description: '에스프레소 + 물', imageUrl: '' },
+    { id: 15, name: '카페 라떼', price: 5500, description: '에스프레소 + 우유', imageUrl: '' },
+    { id: 16, name: '크루아상', price: 4500, description: '버터 크루아상', imageUrl: '' },
+  ],
+};
