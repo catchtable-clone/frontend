@@ -47,7 +47,7 @@ export default function MapPage() {
   return (
     <>
       <Script
-        src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&autoload=false`}
+        src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&autoload=false`}
         strategy="afterInteractive"
         onLoad={() => setSdkLoaded(true)}
       />
@@ -55,11 +55,7 @@ export default function MapPage() {
       <Header title="지도" showBack />
 
       <main className="flex-1">
-        <div
-          ref={mapRef}
-          className="h-full w-full"
-          style={{ minHeight: 'calc(100dvh - 52px - 58px)' }}
-        />
+        <div ref={mapRef} className="h-full min-h-0 w-full flex-1" />
       </main>
 
       <BottomNav />

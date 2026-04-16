@@ -1,6 +1,9 @@
 declare namespace kakao.maps {
   class Map {
-    constructor(container: HTMLElement, options: { center: LatLng; level: number });
+    constructor(
+      container: HTMLElement,
+      options: { center: LatLng; level: number },
+    );
   }
 
   class LatLng {
@@ -19,7 +22,11 @@ declare namespace kakao.maps {
   }
 
   namespace event {
-    function addListener(target: Marker | Map, type: string, callback: () => void): void;
+    function addListener(
+      target: Marker | Map,
+      type: string,
+      callback: () => void,
+    ): void;
   }
 
   function load(callback: () => void): void;

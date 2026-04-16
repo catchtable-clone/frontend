@@ -1,4 +1,8 @@
-export default function LoadingSpinner({ message = '로딩 중...' }: { message?: string }) {
+export default function LoadingSpinner({
+  message = '로딩 중...',
+}: {
+  message?: string;
+}) {
   return (
     <div className="flex min-h-dvh items-center justify-center">
       <div className="flex flex-col items-center gap-3">

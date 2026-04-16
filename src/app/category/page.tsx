@@ -1,22 +1,28 @@
 'use client';
 
-import { useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
 import StoreCard from '@/components/store/StoreCard';
 import { mockCategories, mockStores } from '@/lib/mockData';
 
 function CategoryContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const initialCategory = searchParams.get('selected');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(
-    initialCategory,
-  );
+  const selectedCategory = searchParams.get('selected');
 
   const filteredStores = selectedCategory
     ? mockStores.filter((store) => store.category === selectedCategory)
     : mockStores;
+
+  const handleCategoryClick = (categoryName: string | null) => {
+    if (categoryName) {
+      router.push(`/category?selected=${encodeURIComponent(categoryName)}`);
+    } else {
+      router.push('/category');
+    }
+  };
 
   return (
     <>
@@ -25,7 +31,7 @@ function CategoryContent() {
         {/* 카테고리 탭 */}
         <div className="flex gap-2 overflow-x-auto border-b border-gray-100 px-4 py-3">
           <button
-            onClick={() => setSelectedCategory(null)}
+            onClick={() => handleCategoryClick(null)}
             className={`flex-shrink-0 rounded-full px-4 py-2 text-sm ${
               selectedCategory === null
                 ? 'bg-orange-500 text-white'
@@ -37,7 +43,7 @@ function CategoryContent() {
           {mockCategories.map((category) => (
             <button
               key={category.id}
-              onClick={() => setSelectedCategory(category.name)}
+              onClick={() => handleCategoryClick(category.name)}
               className={`flex-shrink-0 rounded-full px-4 py-2 text-sm ${
                 selectedCategory === category.name
                   ? 'bg-orange-500 text-white'

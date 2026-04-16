@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import { LogOut, Settings, Bell, Shield, HelpCircle } from 'lucide-react';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
@@ -10,11 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
 export default function MyPage() {
   const router = useRouter();
   const { accessToken, logout } = useAuthStore();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    setIsLoggedIn(!!accessToken);
-  }, [accessToken]);
+  const isLoggedIn = !!accessToken;
 
   return (
     <>
