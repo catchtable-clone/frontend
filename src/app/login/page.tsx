@@ -1,22 +1,24 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 
 const GOOGLE_AUTH_URL = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
-const IS_MOCK = !process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL === 'http://localhost:8080/api/v1';
+const IS_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
 
-export default function Login() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setAccessToken = useAuthStore((state) => state.setAccessToken);
+  const redirectTo = searchParams.get('redirect') || '/';
 
   const handleGoogleLogin = () => {
     if (IS_MOCK) {
-      // 백엔드 미구현 시 목 로그인
       setAccessToken('mock-access-token');
-      router.push('/');
+      router.push(redirectTo);
     } else {
-      window.location.href = GOOGLE_AUTH_URL;
+      window.location.href = `${GOOGLE_AUTH_URL}?redirect=${encodeURIComponent(redirectTo)}`;
     }
   };
 
@@ -60,5 +62,13 @@ export default function Login() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   );
 }

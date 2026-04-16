@@ -9,16 +9,19 @@ import { useAuthStore } from '@/stores/authStore';
 
 export default function MyPage() {
   const router = useRouter();
-  const { accessToken, logout } = useAuthStore();
+  const { accessToken, setAccessToken, logout } = useAuthStore();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    setIsLoggedIn(!!accessToken);
-  }, [accessToken]);
+    const savedToken = localStorage.getItem('accessToken');
+    if (savedToken && !accessToken) {
+      setAccessToken(savedToken);
+    }
+    setIsLoggedIn(!!accessToken || !!savedToken);
+  }, [accessToken, setAccessToken]);
 
   const handleLogout = () => {
     logout();
-    router.push('/');
   };
 
   return (
@@ -69,7 +72,7 @@ export default function MyPage() {
           <div className="flex flex-col items-center gap-4 py-16">
             <p className="text-gray-500">로그인이 필요합니다</p>
             <button
-              onClick={() => router.push('/login')}
+              onClick={() => router.push('/login?redirect=/mypage')}
               className="rounded-lg bg-orange-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-600"
             >
               로그인하기
