@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   CalendarDays,
@@ -15,6 +15,7 @@ import {
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
 import { mockReservations } from '@/lib/mockData';
+import { formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import type { Reservation, ReservationStatus, Review } from '@/types/store';
 
@@ -31,15 +32,6 @@ const STATUS_CONFIG: Record<
   CANCELLED: { label: '취소됨', color: 'text-gray-500', bg: 'bg-gray-100' },
   NOSHOW: { label: '노쇼', color: 'text-red-600', bg: 'bg-red-50' },
 };
-
-function formatDate(dateStr: string) {
-  const date = new Date(dateStr);
-  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const weekday = weekdays[date.getDay()];
-  return `${month}월 ${day}일 (${weekday})`;
-}
 
 function StarRating({
   rating,
@@ -220,24 +212,24 @@ export default function ReservationsPage() {
     const remaining = 5 - reviewImages.length;
     const selected = Array.from(files).slice(0, remaining);
 
-    selected.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const result = ev.target?.result as string;
-        setReviewImages((prev) => {
-          if (prev.length >= 5) return prev;
-          return [...prev, result];
-        });
-      };
-      reader.readAsDataURL(file);
-    });
+    const newUrls = selected.map((file) => URL.createObjectURL(file));
+    setReviewImages((prev) => [...prev, ...newUrls].slice(0, 5));
 
     e.target.value = '';
   };
 
   const removeImage = (index: number) => {
-    setReviewImages((prev) => prev.filter((_, i) => i !== index));
+    setReviewImages((prev) => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
   };
+
+  useEffect(() => {
+    return () => {
+      reviewImages.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   const submitReview = () => {
     if (!reviewTarget || reviewRating === 0) return;

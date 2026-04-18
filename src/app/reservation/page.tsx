@@ -11,20 +11,14 @@ import {
   Ticket,
   Check,
   ChevronRight,
+  CheckCircle,
+  Mail,
 } from 'lucide-react';
 import Header from '@/components/common/Header';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { mockStores, mockCoupons } from '@/lib/mockData';
+import { formatDate } from '@/lib/utils';
 import type { Coupon } from '@/types/store';
-
-function formatDate(dateStr: string) {
-  const date = new Date(dateStr);
-  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const weekday = weekdays[date.getDay()];
-  return `${month}월 ${day}일 (${weekday})`;
-}
 
 function ReservationContent() {
   const router = useRouter();
@@ -42,6 +36,7 @@ function ReservationContent() {
   const [guestCount, setGuestCount] = useState(2);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [showCouponSheet, setShowCouponSheet] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   if (!store || !date || !time) {
     return (
@@ -55,11 +50,7 @@ function ReservationContent() {
   }
 
   const handleConfirm = () => {
-    const action = isChange ? '변경' : '완료';
-    alert(
-      `${store.name}\n${formatDate(date)} ${time}\n${guestCount}명${selectedCoupon ? `\n쿠폰: ${selectedCoupon.name} (${selectedCoupon.discountRate}% 할인)` : ''}\n\n예약이 ${action}되었습니다!`,
-    );
-    router.push('/reservations');
+    setShowSuccess(true);
   };
 
   return (
@@ -163,6 +154,40 @@ function ReservationContent() {
           {isChange ? '예약 변경하기' : '예약 확정하기'}
         </button>
       </div>
+
+      {/* 예약 성공 모달 */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative mx-4 w-full max-w-[360px] rounded-2xl bg-white p-6 text-center">
+            <CheckCircle size={48} className="mx-auto text-green-500" />
+            <h3 className="mt-3 text-lg font-semibold text-gray-900">
+              예약이 {isChange ? '변경' : '확정'}되었습니다
+            </h3>
+            <div className="mt-3 rounded-lg bg-gray-50 px-4 py-3 text-left">
+              <p className="text-sm font-medium text-gray-900">{store.name}</p>
+              <p className="mt-1 text-sm text-gray-600">
+                {formatDate(date)} {time} / {guestCount}명
+              </p>
+              {selectedCoupon && (
+                <p className="mt-1 text-sm text-orange-500">
+                  {selectedCoupon.name} ({selectedCoupon.discountRate}% 할인)
+                </p>
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-center gap-1.5 text-sm text-gray-500">
+              <Mail size={14} />
+              <span>예약 확인 이메일이 발송됩니다</span>
+            </div>
+            <button
+              onClick={() => router.push('/reservations')}
+              className="mt-5 w-full rounded-lg bg-orange-500 py-2.5 text-sm font-semibold text-white hover:bg-orange-600"
+            >
+              예약 내역 보기
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 쿠폰 선택 바텀시트 */}
       {showCouponSheet && (

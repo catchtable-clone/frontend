@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Ticket } from 'lucide-react';
 import Header from '@/components/common/Header';
 import { mockCoupons } from '@/lib/mockData';
+import { formatDateDot } from '@/lib/utils';
 import type { Coupon, CouponStatus } from '@/types/store';
 
 const STATUS_LABEL: Record<CouponStatus, string> = {
@@ -11,14 +12,6 @@ const STATUS_LABEL: Record<CouponStatus, string> = {
   USED: '사용 완료',
   EXPIRED: '기간 만료',
 };
-
-function formatDate(dateStr: string) {
-  const date = new Date(dateStr);
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}.${m}.${d}`;
-}
 
 function CouponCard({ coupon }: { coupon: Coupon }) {
   const isAvailable = coupon.status === 'AVAILABLE';
@@ -52,7 +45,7 @@ function CouponCard({ coupon }: { coupon: Coupon }) {
         </p>
         <div className="mt-1.5 flex items-center justify-between">
           <span className="text-xs text-gray-400">
-            ~{formatDate(coupon.expiresAt)} 까지
+            ~{formatDateDot(coupon.expiresAt)} 까지
           </span>
           <span
             className={`rounded-full px-2 py-0.5 text-xs font-medium ${

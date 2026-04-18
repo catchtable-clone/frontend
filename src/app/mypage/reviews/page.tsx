@@ -2,18 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Star, Trash2, MessageSquare, X } from 'lucide-react';
 import Header from '@/components/common/Header';
 import { mockReviews, mockStores } from '@/lib/mockData';
+import { formatDateDot } from '@/lib/utils';
 import type { Review } from '@/types/store';
-
-function formatDate(dateStr: string) {
-  const date = new Date(dateStr);
-  const y = date.getFullYear();
-  const m = date.getMonth() + 1;
-  const d = date.getDate();
-  return `${y}.${String(m).padStart(2, '0')}.${String(d).padStart(2, '0')}`;
-}
 
 export default function MyReviewsPage() {
   const router = useRouter();
@@ -94,7 +88,7 @@ export default function MyReviewsPage() {
                       ))}
                     </div>
                     <span className="text-xs text-gray-400">
-                      {formatDate(review.createdAt)}
+                      {formatDateDot(review.createdAt)}
                     </span>
                   </div>
 
@@ -109,12 +103,14 @@ export default function MyReviewsPage() {
                   {review.imageUrls.length > 0 && (
                     <div className="mt-3 flex gap-2 overflow-x-auto">
                       {review.imageUrls.map((url, idx) => (
-                        <img
-                          key={idx}
-                          src={url}
-                          alt={`리뷰 이미지 ${idx + 1}`}
-                          className="h-20 w-20 flex-shrink-0 rounded-lg object-cover"
-                        />
+                        <div key={idx} className="relative h-20 w-20 flex-shrink-0">
+                          <Image
+                            src={url}
+                            alt={`리뷰 이미지 ${idx + 1}`}
+                            fill
+                            className="rounded-lg object-cover"
+                          />
+                        </div>
                       ))}
                     </div>
                   )}
