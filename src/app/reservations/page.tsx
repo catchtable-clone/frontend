@@ -1,19 +1,20 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   CalendarDays,
   Clock,
   Users,
   X,
-  Star,
   Pencil,
   Check,
   Camera,
 } from 'lucide-react';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import StarRating from '@/components/common/StarRating';
 import { mockReservations } from '@/lib/mockData';
 import { formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
@@ -32,31 +33,6 @@ const STATUS_CONFIG: Record<
   CANCELLED: { label: '취소됨', color: 'text-gray-500', bg: 'bg-gray-100' },
   NOSHOW: { label: '노쇼', color: 'text-red-600', bg: 'bg-red-50' },
 };
-
-function StarRating({
-  rating,
-  onRate,
-}: {
-  rating: number;
-  onRate: (star: number) => void;
-}) {
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button key={star} onClick={() => onRate(star)} type="button">
-          <Star
-            size={32}
-            className={
-              star <= rating
-                ? 'fill-orange-400 text-orange-400'
-                : 'text-gray-300'
-            }
-          />
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function ReservationCard({
   reservation,
@@ -199,6 +175,7 @@ export default function ReservationsPage() {
   };
 
   const closeReviewModal = () => {
+    reviewImages.forEach((url) => URL.revokeObjectURL(url));
     setReviewTarget(null);
     setReviewRating(0);
     setReviewContent('');
@@ -224,12 +201,6 @@ export default function ReservationsPage() {
       return prev.filter((_, i) => i !== index);
     });
   };
-
-  useEffect(() => {
-    return () => {
-      reviewImages.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, []);
 
   const submitReview = () => {
     if (!reviewTarget || reviewRating === 0) return;
@@ -336,40 +307,13 @@ export default function ReservationsPage() {
 
       {/* 취소 확인 모달 */}
       {cancelTarget !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setCancelTarget(null)}
-          />
-          <div className="relative mx-4 w-full max-w-[360px] rounded-2xl bg-white p-6">
-            <button
-              onClick={() => setCancelTarget(null)}
-              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-            >
-              <X size={20} />
-            </button>
-            <h3 className="text-lg font-semibold text-gray-900">
-              예약을 취소하시겠습니까?
-            </h3>
-            <p className="mt-2 text-sm text-gray-500">
-              취소된 예약은 복구할 수 없습니다.
-            </p>
-            <div className="mt-5 flex gap-2">
-              <button
-                onClick={() => setCancelTarget(null)}
-                className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                돌아가기
-              </button>
-              <button
-                onClick={confirmCancel}
-                className="flex-1 rounded-lg bg-red-500 py-2.5 text-sm font-medium text-white hover:bg-red-600"
-              >
-                취소하기
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title="예약을 취소하시겠습니까?"
+          message="취소된 예약은 복구할 수 없습니다."
+          confirmLabel="취소하기"
+          onConfirm={confirmCancel}
+          onCancel={() => setCancelTarget(null)}
+        />
       )}
 
       {/* 리뷰 작성 모달 */}
@@ -405,7 +349,7 @@ export default function ReservationsPage() {
               <p className="text-sm font-medium text-gray-700">
                 매장은 어떠셨나요?
               </p>
-              <StarRating rating={reviewRating} onRate={setReviewRating} />
+              <StarRating rating={reviewRating} size={32} onRate={setReviewRating} />
               <p className="text-xs text-gray-400">
                 {reviewRating === 0 && '별점을 선택해주세요'}
                 {reviewRating === 1 && '별로예요'}

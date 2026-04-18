@@ -34,6 +34,7 @@ declare namespace kakao.maps {
     constructor(options: { content: string; removable?: boolean });
     open(map: Map, marker: Marker): void;
     close(): void;
+    setContent(content: string): void;
   }
 
   namespace event {

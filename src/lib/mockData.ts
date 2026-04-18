@@ -1,4 +1,4 @@
-import { Store, Menu, Category, Reservation, Review, Coupon } from '@/types/store';
+import { Store, Menu, Category, Reservation, Review, Coupon, BookmarkFolder, Notification } from '@/types/store';
 
 export const mockCategories: Category[] = [
   { id: 1, name: '한식', icon: '🍚' },
@@ -226,5 +226,79 @@ export const mockCoupons: Coupon[] = [
     discountRate: 5,
     status: 'USED',
     expiresAt: '2026-04-15',
+  },
+];
+
+export const mockBookmarkFolders: BookmarkFolder[] = [
+  {
+    id: 1,
+    name: '기본 폴더',
+    type: 'DEFAULT',
+    storeIds: [1, 2, 6],
+  },
+  {
+    id: 2,
+    name: '데이트 맛집',
+    type: 'CUSTOM',
+    storeIds: [1, 4],
+  },
+  {
+    id: 3,
+    name: 'Slack 공유',
+    type: 'SLACK',
+    storeIds: [2, 3, 5],
+  },
+];
+
+export const mockNotifications: Notification[] = [
+  {
+    id: 1,
+    type: 'RESERVATION_CONFIRMED',
+    title: '예약이 확정되었습니다',
+    message: '4월 20일 (월) 18:00, 2명 예약이 확정되었습니다.',
+    storeId: 1,
+    storeName: '스시 소라',
+    isRead: false,
+    createdAt: '2026-04-18T10:30:00',
+  },
+  {
+    id: 2,
+    type: 'VACANCY',
+    title: '빈자리가 발생했습니다!',
+    message: '4월 19일 (토) 19:00에 빈자리가 생겼습니다. 지금 바로 예약하세요!',
+    storeId: 2,
+    storeName: '모수 서울',
+    isRead: false,
+    createdAt: '2026-04-18T09:15:00',
+  },
+  {
+    id: 3,
+    type: 'RESERVATION_REMIND',
+    title: '예약 리마인드',
+    message: '내일 12:00 예약이 있습니다. 방문 시간을 확인해주세요.',
+    storeId: 4,
+    storeName: '라멘 이찌',
+    isRead: true,
+    createdAt: '2026-04-17T18:00:00',
+  },
+  {
+    id: 4,
+    type: 'RESERVATION_CONFIRMED',
+    title: '예약이 확정되었습니다',
+    message: '4월 22일 (수) 12:00, 4명 예약이 확정되었습니다.',
+    storeId: 4,
+    storeName: '라멘 이찌',
+    isRead: true,
+    createdAt: '2026-04-17T14:00:00',
+  },
+  {
+    id: 5,
+    type: 'VACANCY',
+    title: '빈자리가 발생했습니다!',
+    message: '4월 21일 (월) 18:00에 빈자리가 생겼습니다. 지금 바로 예약하세요!',
+    storeId: 1,
+    storeName: '스시 소라',
+    isRead: true,
+    createdAt: '2026-04-16T11:30:00',
   },
 ];

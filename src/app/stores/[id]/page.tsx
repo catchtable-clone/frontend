@@ -2,12 +2,13 @@
 
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Star, Clock, MapPin, Heart, X } from 'lucide-react';
+import { Star, Clock, MapPin, Heart } from 'lucide-react';
 import { DayPicker } from 'react-day-picker';
 import { ko } from 'react-day-picker/locale';
 import 'react-day-picker/style.css';
 import Header from '@/components/common/Header';
 import { mockStores, mockMenus, mockFullyBookedDays } from '@/lib/mockData';
+import { formatDateParts } from '@/lib/utils';
 
 function getNextDays(count: number) {
   const days = [];
@@ -18,14 +19,6 @@ function getNextDays(count: number) {
     days.push(date);
   }
   return days;
-}
-
-function formatDate(date: Date) {
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-  const weekday = weekdays[date.getDay()];
-  return { month, day, weekday };
 }
 
 export default function StoreDetail({
@@ -142,7 +135,7 @@ export default function StoreDetail({
           ) : (
             <div className="flex gap-2 overflow-x-auto">
               {days.map((date) => {
-                const { month, day, weekday } = formatDate(date);
+                const { month, day, weekday } = formatDateParts(date);
                 const isToday =
                   date.toDateString() === new Date().toDateString();
                 const isSelected =
