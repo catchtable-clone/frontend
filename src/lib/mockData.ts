@@ -1,4 +1,4 @@
-import { Store, Menu, Category } from '@/types/store';
+import { Store, Menu, Category, Reservation, Review, Coupon } from '@/types/store';
 
 export const mockCategories: Category[] = [
   { id: 1, name: '한식', icon: '🍚' },
@@ -134,3 +134,97 @@ export const mockMenus: Record<number, Menu[]> = {
     { id: 16, name: '크루아상', price: 4500, description: '버터 크루아상', imageUrl: '' },
   ],
 };
+
+export const mockReservations: Reservation[] = [
+  {
+    id: 1,
+    storeId: 1,
+    storeName: '스시 소라',
+    storeCategory: '일식',
+    date: '2026-04-20',
+    time: '18:00',
+    guestCount: 2,
+    status: 'CONFIRMED',
+    createdAt: '2026-04-18T10:30:00',
+  },
+  {
+    id: 2,
+    storeId: 4,
+    storeName: '라멘 이찌',
+    storeCategory: '일식',
+    date: '2026-04-22',
+    time: '12:00',
+    guestCount: 4,
+    status: 'CONFIRMED',
+    createdAt: '2026-04-17T14:00:00',
+  },
+  {
+    id: 3,
+    storeId: 2,
+    storeName: '모수 서울',
+    storeCategory: '한식',
+    date: '2026-04-10',
+    time: '19:00',
+    guestCount: 2,
+    status: 'VISITED',
+    createdAt: '2026-04-05T09:00:00',
+  },
+  {
+    id: 4,
+    storeId: 6,
+    storeName: '카페 온도',
+    storeCategory: '카페',
+    date: '2026-04-08',
+    time: '14:00',
+    guestCount: 3,
+    status: 'CANCELLED',
+    createdAt: '2026-04-03T16:20:00',
+  },
+  {
+    id: 5,
+    storeId: 1,
+    storeName: '스시 소라',
+    storeCategory: '일식',
+    date: '2026-03-25',
+    time: '18:00',
+    guestCount: 2,
+    status: 'NOSHOW',
+    createdAt: '2026-03-20T11:00:00',
+  },
+];
+
+export const mockReviews: Review[] = [
+  {
+    id: 1,
+    reservationId: 3,
+    storeId: 2,
+    rating: 5,
+    content: '한우 코스가 정말 훌륭했습니다. 분위기도 좋고 서비스도 최고!',
+    imageUrls: [],
+    createdAt: '2026-04-11T10:00:00',
+  },
+];
+
+export const mockCoupons: Coupon[] = [
+  {
+    id: 1,
+    name: '신규 가입 할인 쿠폰',
+    discountRate: 10,
+    status: 'AVAILABLE',
+    expiresAt: '2026-05-31',
+  },
+  {
+    id: 2,
+    name: '봄맞이 특별 할인 쿠폰',
+    discountRate: 15,
+    status: 'AVAILABLE',
+    expiresAt: '2026-04-30',
+  },
+  {
+    id: 3,
+    name: '첫 예약 감사 쿠폰',
+    discountRate: 5,
+    status: 'USED',
+    expiresAt: '2026-04-15',
+  },
+];

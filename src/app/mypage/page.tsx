@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { LogOut, Settings, Bell, Shield, HelpCircle } from 'lucide-react';
+import { LogOut, Settings, Bell, Shield, HelpCircle, MessageSquare, Ticket } from 'lucide-react';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
 import { useAuthStore } from '@/stores/authStore';
@@ -33,6 +33,20 @@ export default function MyPage() {
               <button className="flex items-center gap-3 border-b border-gray-100 px-2 py-4 text-sm text-gray-700">
                 <Settings size={20} className="text-gray-400" />
                 프로필 수정
+              </button>
+              <button
+                onClick={() => router.push('/mypage/reviews')}
+                className="flex items-center gap-3 border-b border-gray-100 px-2 py-4 text-sm text-gray-700"
+              >
+                <MessageSquare size={20} className="text-gray-400" />
+                리뷰 관리
+              </button>
+              <button
+                onClick={() => router.push('/mypage/coupons')}
+                className="flex items-center gap-3 border-b border-gray-100 px-2 py-4 text-sm text-gray-700"
+              >
+                <Ticket size={20} className="text-gray-400" />
+                쿠폰 관리
               </button>
               <button className="flex items-center gap-3 border-b border-gray-100 px-2 py-4 text-sm text-gray-700">
                 <Bell size={20} className="text-gray-400" />
