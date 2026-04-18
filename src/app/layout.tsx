@@ -1,15 +1,10 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Geist } from 'next/font/google';
 import './globals.css';
 import QueryProvider from '@/lib/QueryProvider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
   subsets: ['latin'],
 });
 
@@ -24,12 +19,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
-        <QueryProvider>{children}</QueryProvider>
+    <html lang="ko" className={`${geistSans.variable} h-full antialiased`}>
+      <body className="min-h-full flex justify-center bg-gray-100">
+        <div className="w-full max-w-[480px] min-h-dvh flex flex-col bg-white">
+          <QueryProvider>{children}</QueryProvider>
+        </div>
       </body>
     </html>
   );
