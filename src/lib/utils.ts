@@ -1,3 +1,5 @@
+import type { Store } from '@/types/store';
+
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 export function formatDate(dateStr: string) {
@@ -8,10 +10,27 @@ export function formatDate(dateStr: string) {
   return `${month}월 ${day}일 (${weekday})`;
 }
 
+export function formatDateParts(date: Date) {
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const weekday = WEEKDAYS[date.getDay()];
+  return { month, day, weekday };
+}
+
 export function formatDateDot(dateStr: string) {
   const date = new Date(dateStr);
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}.${m}.${d}`;
+}
+
+export function filterStores(stores: Store[], query: string) {
+  const q = query.toLowerCase();
+  return stores.filter(
+    (s) =>
+      s.name.toLowerCase().includes(q) ||
+      s.category.toLowerCase().includes(q) ||
+      s.address.toLowerCase().includes(q),
+  );
 }

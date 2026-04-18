@@ -9,7 +9,7 @@ export default function Home() {
 
   return (
     <>
-      <Header showSearch />
+      <Header showLogo />
       <main className="flex-1">
         {/* 카테고리 */}
         <section className="border-b border-gray-100 px-4 py-4">

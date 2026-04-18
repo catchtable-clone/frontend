@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Star, Trash2, MessageSquare, X } from 'lucide-react';
+import { Trash2, MessageSquare } from 'lucide-react';
 import Header from '@/components/common/Header';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import StarRating from '@/components/common/StarRating';
 import { mockReviews, mockStores } from '@/lib/mockData';
 import { formatDateDot } from '@/lib/utils';
 import type { Review } from '@/types/store';
@@ -74,19 +76,7 @@ export default function MyReviewsPage() {
 
                   {/* 별점 + 날짜 */}
                   <div className="mt-2 flex items-center gap-2">
-                    <div className="flex">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star
-                          key={star}
-                          size={14}
-                          className={
-                            star <= review.rating
-                              ? 'fill-orange-400 text-orange-400'
-                              : 'text-gray-300'
-                          }
-                        />
-                      ))}
-                    </div>
+                    <StarRating rating={review.rating} />
                     <span className="text-xs text-gray-400">
                       {formatDateDot(review.createdAt)}
                     </span>
@@ -123,40 +113,13 @@ export default function MyReviewsPage() {
 
       {/* 삭제 확인 모달 */}
       {deleteTarget !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setDeleteTarget(null)}
-          />
-          <div className="relative mx-4 w-full max-w-[360px] rounded-2xl bg-white p-6">
-            <button
-              onClick={() => setDeleteTarget(null)}
-              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-            >
-              <X size={20} />
-            </button>
-            <h3 className="text-lg font-semibold text-gray-900">
-              리뷰를 삭제하시겠습니까?
-            </h3>
-            <p className="mt-2 text-sm text-gray-500">
-              삭제된 리뷰는 복구할 수 없습니다.
-            </p>
-            <div className="mt-5 flex gap-2">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                돌아가기
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="flex-1 rounded-lg bg-red-500 py-2.5 text-sm font-medium text-white hover:bg-red-600"
-              >
-                삭제하기
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title="리뷰를 삭제하시겠습니까?"
+          message="삭제된 리뷰는 복구할 수 없습니다."
+          confirmLabel="삭제하기"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </>
   );

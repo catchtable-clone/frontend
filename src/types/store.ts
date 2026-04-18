@@ -42,6 +42,28 @@ export interface Reservation {
   reviewId?: number;
 }
 
+export type FolderType = 'DEFAULT' | 'SLACK' | 'CUSTOM';
+
+export interface BookmarkFolder {
+  id: number;
+  name: string;
+  type: FolderType;
+  storeIds: number[];
+}
+
+export type NotificationType = 'RESERVATION_CONFIRMED' | 'RESERVATION_REMIND' | 'VACANCY';
+
+export interface Notification {
+  id: number;
+  type: NotificationType;
+  title: string;
+  message: string;
+  storeId: number;
+  storeName: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export type CouponStatus = 'AVAILABLE' | 'USED' | 'EXPIRED';
 
 export interface Coupon {
