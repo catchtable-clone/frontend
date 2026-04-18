@@ -28,6 +28,7 @@ function MapContent() {
   const mapInstanceRef = useRef<kakao.maps.Map | null>(null);
   const markersRef = useRef<MarkerEntry[]>([]);
   const openInfoWindowRef = useRef<kakao.maps.InfoWindow | null>(null);
+  const foldersRef = useRef<BookmarkFolder[]>(mockBookmarkFolders);
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -55,15 +56,32 @@ function MapContent() {
     openInfoWindowRef.current = null;
   }, []);
 
+  // foldersRef를 항상 최신 상태로 유지
+  useEffect(() => {
+    foldersRef.current = folders;
+  }, [folders]);
+
+  const buildInfoContent = useCallback(
+    (store: (typeof mockStores)[0], bookmarked: boolean) => {
+      const closedBadge = store.isClosed
+        ? '<span style="color:#ef4444;font-size:11px;font-weight:600;">휴업중</span><br/>'
+        : '';
+      const bookmarkBadge = bookmarked
+        ? '<span style="color:#f97316;font-size:11px;">&#9829; 즐겨찾기</span><br/>'
+        : '';
+      return `<div style="padding:10px 14px;font-size:13px;line-height:1.6;white-space:nowrap;">
+        ${closedBadge}${bookmarkBadge}<strong>${store.name}</strong><br/>
+        <span style="color:#888;">${store.category} · ${store.address}</span><br/>
+        <span style="color:#f97316;font-size:12px;">★ ${store.rating}</span> <span style="color:#aaa;font-size:11px;">(${store.reviewCount})</span><br/>
+        <a href="/stores/${store.id}" style="color:#f97316;font-size:12px;text-decoration:none;">상세보기 →</a>
+      </div>`;
+    },
+    [],
+  );
+
   const addMarkers = useCallback(
     (map: kakao.maps.Map) => {
-      const storesToShow = mockStores;
-
-      storesToShow.forEach((store) => {
-        const isBookmarked = folders.some((f) =>
-          f.storeIds.includes(store.id),
-        );
-
+      mockStores.forEach((store) => {
         const markerImage = store.isClosed
           ? new kakao.maps.MarkerImage(
               'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
@@ -78,27 +96,19 @@ function MapContent() {
           opacity: store.isClosed ? 0.5 : 1,
         });
 
-        const closedBadge = store.isClosed
-          ? '<span style="color:#ef4444;font-size:11px;font-weight:600;">휴업중</span><br/>'
-          : '';
-
-        const bookmarkBadge = isBookmarked
-          ? '<span style="color:#f97316;font-size:11px;">&#9829; 즐겨찾기</span><br/>'
-          : '';
-
         const infoWindow = new kakao.maps.InfoWindow({
-          content: `<div style="padding:10px 14px;font-size:13px;line-height:1.6;white-space:nowrap;">
-            ${closedBadge}${bookmarkBadge}<strong>${store.name}</strong><br/>
-            <span style="color:#888;">${store.category} · ${store.address}</span><br/>
-            <span style="color:#f97316;font-size:12px;">★ ${store.rating}</span> <span style="color:#aaa;font-size:11px;">(${store.reviewCount})</span><br/>
-            <a href="/stores/${store.id}" style="color:#f97316;font-size:12px;text-decoration:none;">상세보기 →</a>
-          </div>`,
+          content: buildInfoContent(store, false),
         });
 
         markersRef.current.push({ store, marker, infoWindow });
 
         kakao.maps.event.addListener(marker, 'click', () => {
           if (openInfoWindowRef.current) openInfoWindowRef.current.close();
+          // 클릭 시점의 최신 folders로 즐겨찾기 여부 판단
+          const bookmarked = foldersRef.current.some((f) =>
+            f.storeIds.includes(store.id),
+          );
+          infoWindow.setContent(buildInfoContent(store, bookmarked));
           infoWindow.open(map, marker);
           openInfoWindowRef.current = infoWindow;
         });
@@ -109,8 +119,9 @@ function MapContent() {
         }
       });
     },
-    [targetStoreId, folders],
+    [targetStoreId, buildInfoContent],
   );
+
 
   const initMap = useCallback(() => {
     if (!mapRef.current) return;

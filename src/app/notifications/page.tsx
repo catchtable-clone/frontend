@@ -38,6 +38,7 @@ const TYPE_CONFIG: Record<
 function timeAgo(dateStr: string) {
   const now = new Date();
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
   const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60000);
   const diffHour = Math.floor(diffMin / 60);
