@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, LayoutGrid, Heart, Bell, User } from 'lucide-react';
+import { Home, LayoutGrid, CalendarCheck, Bell, User } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: '홈', icon: Home },
   { href: '/category', label: '카테고리', icon: LayoutGrid },
-  { href: '/bookmarks', label: '즐겨찾기', icon: Heart },
+  { href: '/reservations', label: '예약', icon: CalendarCheck },
   { href: '/notifications', label: '알림', icon: Bell },
   { href: '/mypage', label: '마이', icon: User },
 ];

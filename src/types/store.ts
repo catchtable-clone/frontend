@@ -26,3 +26,38 @@ export interface Category {
   name: string;
   icon: string;
 }
+
+export type ReservationStatus = 'CONFIRMED' | 'CANCELLED' | 'NOSHOW' | 'VISITED';
+
+export interface Reservation {
+  id: number;
+  storeId: number;
+  storeName: string;
+  storeCategory: string;
+  date: string;
+  time: string;
+  guestCount: number;
+  status: ReservationStatus;
+  createdAt: string;
+  reviewId?: number;
+}
+
+export type CouponStatus = 'AVAILABLE' | 'USED' | 'EXPIRED';
+
+export interface Coupon {
+  id: number;
+  name: string;
+  discountRate: number;
+  status: CouponStatus;
+  expiresAt: string;
+}
+
+export interface Review {
+  id: number;
+  reservationId: number;
+  storeId: number;
+  rating: number;
+  content: string;
+  imageUrls: string[];
+  createdAt: string;
+}
