@@ -11,7 +11,7 @@ import BottomSheet from '@/components/common/BottomSheet';
 import CenteredModal from '@/components/common/CenteredModal';
 import { mockStores, mockMenus, mockFullyBookedDays, mockBookmarkFolders, mockStoreReviews } from '@/lib/mockData';
 import StarRating from '@/components/common/StarRating';
-import { formatDateParts } from '@/lib/utils';
+import { formatDateParts, formatDateDot } from '@/lib/utils';
 import FolderFormModal from '@/components/common/FolderFormModal';
 import type { BookmarkFolder } from '@/types/store';
 
@@ -272,7 +272,7 @@ export default function StoreDetail({
                         <div className="flex items-center gap-1.5">
                           <StarRating rating={review.rating} size={12} />
                           <span className="text-[11px] text-gray-400">
-                            {new Date(review.createdAt).toLocaleDateString('ko-KR')}
+                            {formatDateDot(review.createdAt)}
                           </span>
                         </div>
                       </div>
