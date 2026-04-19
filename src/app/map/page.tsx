@@ -97,6 +97,24 @@ function MapContent() {
     [],
   );
 
+  // folders 변경 시 마커 색상 즉시 업데이트
+  useEffect(() => {
+    markersRef.current.forEach(({ store, marker }) => {
+      if (store.isClosed) return;
+      const folder = getStoreFolder(store.id, folders);
+      if (folder) {
+        marker.setImage(createColoredMarkerImage(folder.color));
+      } else {
+        marker.setImage(
+          new kakao.maps.MarkerImage(
+            'https://t1.daumcdn.net/mapjsapi/images/marker.png',
+            new kakao.maps.Size(29, 42),
+          ),
+        );
+      }
+    });
+  }, [folders, getStoreFolder, createColoredMarkerImage]);
+
   const addMarkers = useCallback(
     (map: kakao.maps.Map) => {
       mockStores.forEach((store) => {

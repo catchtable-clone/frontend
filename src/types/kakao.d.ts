@@ -28,6 +28,7 @@ declare namespace kakao.maps {
       opacity?: number;
     });
     setMap(map: Map | null): void;
+    setImage(image: MarkerImage): void;
   }
 
   class InfoWindow {

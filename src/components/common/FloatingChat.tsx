@@ -50,18 +50,37 @@ export default function FloatingChat() {
   }>({ dragging: false, moved: false, startX: 0, startY: 0, offsetX: 0, offsetY: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
 
+  const calcDefaultPos = () => {
+    const containerWidth = Math.min(480, window.innerWidth);
+    const offsetLeft = (window.innerWidth - containerWidth) / 2;
+    return {
+      x: offsetLeft + containerWidth - 14 - 56,
+      y: window.innerHeight - 80 - 56,
+    };
+  };
+
   // 초기 위치 설정
   useEffect(() => {
     if (!positioned) {
-      const containerWidth = Math.min(480, window.innerWidth);
-      const offsetLeft = (window.innerWidth - containerWidth) / 2;
-      setBtnPos({
-        x: offsetLeft + containerWidth - 14 - 56,
-        y: window.innerHeight - 80 - 56,
-      });
+      setBtnPos(calcDefaultPos());
       setPositioned(true);
     }
   }, [positioned]);
+
+  // 윈도우 리사이즈 시 위치 재계산
+  useEffect(() => {
+    const handleResize = () => {
+      if (!dragRef.current.dragging) {
+        setBtnPos((prev) => {
+          const clampedX = Math.min(prev.x, window.innerWidth - 56);
+          const clampedY = Math.max(60, Math.min(prev.y, window.innerHeight - 56));
+          return { x: clampedX, y: clampedY };
+        });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     dragRef.current = {
@@ -171,6 +190,7 @@ export default function FloatingChat() {
       {!isOpen && !hideButton && positioned && (
         <button
           ref={btnRef}
+          aria-label="챗봇 열기"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
