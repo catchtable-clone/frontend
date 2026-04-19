@@ -73,6 +73,7 @@ export default function Header({
   const router = useRouter();
   const [query, setQuery] = useState(defaultQuery);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [edited, setEdited] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -187,7 +188,10 @@ export default function Header({
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setEdited(true);
+              }}
               placeholder="매장명, 지역 검색"
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
             />
@@ -202,7 +206,7 @@ export default function Header({
         </form>
 
         {/* 검색 드롭다운 */}
-        {query.trim() && (
+        {edited && query.trim() && (
           <SearchDropdown stores={filterStores(mockStores, query)} />
         )}
       </header>

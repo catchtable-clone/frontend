@@ -1,4 +1,4 @@
-import { Store, Menu, Category, Reservation, Review, Coupon, BookmarkFolder, Notification } from '@/types/store';
+import { Store, Menu, Category, Reservation, Review, Coupon, BookmarkFolder, Notification, VacancySubscription, StoreReview } from '@/types/store';
 
 export const mockCategories: Category[] = [
   { id: 1, name: '한식', icon: '🍚' },
@@ -234,19 +234,22 @@ export const mockBookmarkFolders: BookmarkFolder[] = [
     id: 1,
     name: '기본 폴더',
     type: 'DEFAULT',
-    storeIds: [1, 2, 6],
+    color: '#f97316',
+    storeIds: [1, 6],
   },
   {
     id: 2,
     name: '데이트 맛집',
     type: 'CUSTOM',
-    storeIds: [1, 4],
+    color: '#ec4899',
+    storeIds: [2, 4],
   },
   {
     id: 3,
     name: 'Slack 공유',
     type: 'SLACK',
-    storeIds: [2, 3, 5],
+    color: '#3b82f6',
+    storeIds: [3, 5],
   },
 ];
 
@@ -302,3 +305,81 @@ export const mockNotifications: Notification[] = [
     createdAt: '2026-04-16T11:30:00',
   },
 ];
+
+export const mockVacancySubscriptions: VacancySubscription[] = [
+  {
+    id: 1,
+    storeId: 2,
+    storeName: '모수 서울',
+    storeCategory: '한식',
+    date: '2026-04-20',
+    time: '19:00',
+    createdAt: '2026-04-18T12:00:00',
+  },
+  {
+    id: 2,
+    storeId: 1,
+    storeName: '스시 소라',
+    storeCategory: '일식',
+    date: '2026-04-21',
+    time: '18:00',
+    createdAt: '2026-04-18T14:00:00',
+  },
+];
+
+export const mockStoreReviews: Record<number, StoreReview[]> = {
+  1: [
+    {
+      id: 101,
+      storeId: 1,
+      userName: '미식가A',
+      rating: 5,
+      content: '오마카세 코스가 정말 훌륭했어요. 재료가 신선하고 셰프의 정성이 느껴졌습니다.',
+      createdAt: '2026-04-15T10:00:00',
+    },
+    {
+      id: 102,
+      storeId: 1,
+      userName: '맛집탐험',
+      rating: 4,
+      content: '분위기가 좋고 음식도 맛있었지만 대기 시간이 조금 길었어요.',
+      createdAt: '2026-04-10T15:30:00',
+    },
+  ],
+  2: [
+    {
+      id: 103,
+      storeId: 2,
+      userName: '한식러버',
+      rating: 5,
+      content: '한우 코스 최고! 고기 퀄리티가 다릅니다. 특별한 날에 꼭 다시 오고 싶어요.',
+      createdAt: '2026-04-12T11:00:00',
+    },
+    {
+      id: 104,
+      storeId: 2,
+      userName: '용산주민',
+      rating: 5,
+      content: '제철 코스도 정말 좋았어요. 계절마다 방문하고 싶은 곳.',
+      createdAt: '2026-04-08T18:00:00',
+    },
+    {
+      id: 105,
+      storeId: 2,
+      userName: '데이트맛집',
+      rating: 4,
+      content: '분위기 좋고 서비스도 친절합니다. 다만 예약이 쉽지 않아요.',
+      createdAt: '2026-04-05T20:00:00',
+    },
+  ],
+  4: [
+    {
+      id: 106,
+      storeId: 4,
+      userName: '라멘마니아',
+      rating: 4,
+      content: '돈코츠 라멘의 육수가 진하고 면 식감이 좋습니다.',
+      createdAt: '2026-04-14T12:30:00',
+    },
+  ],
+};

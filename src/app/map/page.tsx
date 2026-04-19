@@ -13,8 +13,11 @@ import {
   Trash2,
   Plus,
   MapPin,
+  Pencil,
 } from 'lucide-react';
 import { mockStores, mockBookmarkFolders } from '@/lib/mockData';
+import { filterStores } from '@/lib/utils';
+import FolderFormModal from '@/components/common/FolderFormModal';
 import type { BookmarkFolder } from '@/types/store';
 
 interface MarkerEntry {
@@ -43,7 +46,7 @@ function MapContent() {
   const [isEditing, setIsEditing] = useState(false);
   const [folders, setFolders] = useState<BookmarkFolder[]>(mockBookmarkFolders);
   const [showAddFolder, setShowAddFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
+  const [editFolder, setEditFolder] = useState<BookmarkFolder | null>(null);
 
   const selectedFolder = folders.find((f) => f.id === selectedFolderId) || null;
   const sheetStores = selectedFolder
@@ -61,16 +64,38 @@ function MapContent() {
     foldersRef.current = folders;
   }, [folders]);
 
+  const getStoreFolder = useCallback(
+    (storeId: number, folderList: BookmarkFolder[]) => {
+      return folderList.find((f) => f.storeIds.includes(storeId)) || null;
+    },
+    [],
+  );
+
+  const markerImageCache = useRef<Map<string, kakao.maps.MarkerImage>>(new Map());
+
+  const createColoredMarkerImage = useCallback((color: string) => {
+    const cached = markerImageCache.current.get(color);
+    if (cached) return cached;
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">
+      <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="${color}"/>
+      <circle cx="14" cy="14" r="6" fill="white"/>
+    </svg>`;
+    const image = new kakao.maps.MarkerImage(
+      `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+      new kakao.maps.Size(28, 40),
+    );
+    markerImageCache.current.set(color, image);
+    return image;
+  }, []);
+
   const buildInfoContent = useCallback(
-    (store: (typeof mockStores)[0], bookmarked: boolean) => {
+    (store: (typeof mockStores)[0]) => {
       const closedBadge = store.isClosed
         ? '<span style="color:#ef4444;font-size:11px;font-weight:600;">휴업중</span><br/>'
         : '';
-      const bookmarkBadge = bookmarked
-        ? '<span style="color:#f97316;font-size:11px;">&#9829; 즐겨찾기</span><br/>'
-        : '';
       return `<div style="padding:10px 14px;font-size:13px;line-height:1.6;white-space:nowrap;">
-        ${closedBadge}${bookmarkBadge}<strong>${store.name}</strong><br/>
+        ${closedBadge}<strong>${store.name}</strong><br/>
         <span style="color:#888;">${store.category} · ${store.address}</span><br/>
         <span style="color:#f97316;font-size:12px;">★ ${store.rating}</span> <span style="color:#aaa;font-size:11px;">(${store.reviewCount})</span><br/>
         <a href="/stores/${store.id}" style="color:#f97316;font-size:12px;text-decoration:none;">상세보기 →</a>
@@ -79,15 +104,36 @@ function MapContent() {
     [],
   );
 
+  // folders 변경 시 마커 색상 즉시 업데이트
+  useEffect(() => {
+    markersRef.current.forEach(({ store, marker }) => {
+      if (store.isClosed) return;
+      const folder = getStoreFolder(store.id, folders);
+      if (folder) {
+        marker.setImage(createColoredMarkerImage(folder.color));
+      } else {
+        marker.setImage(
+          new kakao.maps.MarkerImage(
+            'https://t1.daumcdn.net/mapjsapi/images/marker.png',
+            new kakao.maps.Size(29, 42),
+          ),
+        );
+      }
+    });
+  }, [folders, getStoreFolder, createColoredMarkerImage]);
+
   const addMarkers = useCallback(
     (map: kakao.maps.Map) => {
       mockStores.forEach((store) => {
+        const folder = getStoreFolder(store.id, foldersRef.current);
         const markerImage = store.isClosed
           ? new kakao.maps.MarkerImage(
               'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
               new kakao.maps.Size(24, 35),
             )
-          : undefined;
+          : folder
+            ? createColoredMarkerImage(folder.color)
+            : undefined;
 
         const marker = new kakao.maps.Marker({
           position: new kakao.maps.LatLng(store.lat, store.lng),
@@ -97,18 +143,13 @@ function MapContent() {
         });
 
         const infoWindow = new kakao.maps.InfoWindow({
-          content: buildInfoContent(store, false),
+          content: buildInfoContent(store),
         });
 
         markersRef.current.push({ store, marker, infoWindow });
 
         kakao.maps.event.addListener(marker, 'click', () => {
           if (openInfoWindowRef.current) openInfoWindowRef.current.close();
-          // 클릭 시점의 최신 folders로 즐겨찾기 여부 판단
-          const bookmarked = foldersRef.current.some((f) =>
-            f.storeIds.includes(store.id),
-          );
-          infoWindow.setContent(buildInfoContent(store, bookmarked));
           infoWindow.open(map, marker);
           openInfoWindowRef.current = infoWindow;
         });
@@ -119,7 +160,7 @@ function MapContent() {
         }
       });
     },
-    [targetStoreId, buildInfoContent],
+    [targetStoreId, buildInfoContent, createColoredMarkerImage, getStoreFolder],
   );
 
 
@@ -189,18 +230,27 @@ function MapContent() {
     }
   };
 
-  const handleAddFolder = () => {
-    if (!newFolderName.trim()) return;
+  const handleAddFolder = (name: string, color: string) => {
     const newFolder: BookmarkFolder = {
       id: Math.max(...folders.map((f) => f.id)) + 1,
-      name: newFolderName.trim(),
+      name,
       type: 'CUSTOM',
+      color,
       storeIds: [],
     };
     setFolders((prev) => [...prev, newFolder]);
-    setNewFolderName('');
     setShowAddFolder(false);
     setSelectedFolderId(newFolder.id);
+  };
+
+  const handleEditFolder = (name: string, color: string) => {
+    if (!editFolder) return;
+    setFolders((prev) =>
+      prev.map((f) =>
+        f.id === editFolder.id ? { ...f, name, color } : f,
+      ),
+    );
+    setEditFolder(null);
   };
 
   const handleStoreClick = (storeId: number) => {
@@ -223,13 +273,13 @@ function MapContent() {
   };
 
   const handleMapSearch = (query: string) => {
-    const q = query.toLowerCase();
-    const found = markersRef.current.find(
-      ({ store }) =>
-        store.name.toLowerCase().includes(q) ||
-        store.category.toLowerCase().includes(q) ||
-        store.address.toLowerCase().includes(q),
+    const matched = filterStores(
+      markersRef.current.map((m) => m.store),
+      query,
     );
+    const found = matched.length > 0
+      ? markersRef.current.find((m) => m.store.id === matched[0].id)
+      : undefined;
 
     if (found && mapInstanceRef.current) {
       const map = mapInstanceRef.current;
@@ -318,20 +368,29 @@ function MapContent() {
                 <div key={folder.id} className="relative flex flex-shrink-0 py-1">
                   <button
                     onClick={() => handleFolderSelect(folder.id)}
-                    className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium ${
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
                       selectedFolderId === folder.id
-                        ? 'bg-orange-500 text-white'
+                        ? 'text-white'
                         : 'bg-gray-100 text-gray-600'
                     }`}
+                    style={
+                      selectedFolderId === folder.id
+                        ? { backgroundColor: folder.color }
+                        : undefined
+                    }
                   >
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: folder.color }}
+                    />
                     {folder.name} ({folder.storeIds.length})
                   </button>
-                  {isEditing && folder.type !== 'DEFAULT' && (
+                  {isEditing && (
                     <button
-                      onClick={() => handleDeleteFolder(folder.id)}
-                      className="absolute -right-1 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white"
+                      onClick={() => setEditFolder(folder)}
+                      className="absolute -right-1 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-gray-600 text-white"
                     >
-                      <X size={10} />
+                      <Pencil size={8} />
                     </button>
                   )}
                 </div>
@@ -418,51 +477,25 @@ function MapContent() {
 
       {/* 폴더 추가 모달 */}
       {showAddFolder && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => {
-              setShowAddFolder(false);
-              setNewFolderName('');
-            }}
-          />
-          <div className="relative mx-4 w-full max-w-[360px] rounded-2xl bg-white p-6">
-            <h3 className="text-lg font-semibold text-gray-900">
-              새 폴더 만들기
-            </h3>
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="폴더 이름을 입력하세요"
-              className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
-              autoFocus
-              onKeyDown={(e) => e.key === 'Enter' && handleAddFolder()}
-            />
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => {
-                  setShowAddFolder(false);
-                  setNewFolderName('');
-                }}
-                className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleAddFolder}
-                disabled={!newFolderName.trim()}
-                className={`flex-1 rounded-lg py-2.5 text-sm font-semibold text-white ${
-                  newFolderName.trim()
-                    ? 'bg-orange-500 hover:bg-orange-600'
-                    : 'bg-gray-300'
-                }`}
-              >
-                만들기
-              </button>
-            </div>
-          </div>
-        </div>
+        <FolderFormModal
+          mode="create"
+          onSubmit={handleAddFolder}
+          onClose={() => setShowAddFolder(false)}
+        />
+      )}
+
+      {/* 폴더 편집 모달 */}
+      {editFolder && (
+        <FolderFormModal
+          mode="edit"
+          folder={editFolder}
+          onSubmit={handleEditFolder}
+          onDelete={() => {
+            handleDeleteFolder(editFolder.id);
+            setEditFolder(null);
+          }}
+          onClose={() => setEditFolder(null)}
+        />
       )}
     </>
   );
