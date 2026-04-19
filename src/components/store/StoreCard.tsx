@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { Star, Clock } from 'lucide-react';
+import { Star, Clock, Heart } from 'lucide-react';
 import { Store } from '@/types/store';
+import { mockBookmarkFolders } from '@/lib/mockData';
 
 interface StoreCardProps {
   store: Store;
@@ -8,6 +9,9 @@ interface StoreCardProps {
 
 export default function StoreCard({ store }: StoreCardProps) {
   const isClosed = store.isClosed ?? false;
+  const folder = mockBookmarkFolders.find((f) =>
+    f.storeIds.includes(store.id),
+  );
 
   return (
     <Link
@@ -20,6 +24,13 @@ export default function StoreCard({ store }: StoreCardProps) {
           <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-gray-700 px-2 py-0.5 text-[10px] font-semibold text-white">
             휴업중
           </span>
+        )}
+        {folder && (
+          <Heart
+            size={14}
+            className="absolute right-1.5 top-1.5 fill-current"
+            style={{ color: folder.color }}
+          />
         )}
       </div>
 

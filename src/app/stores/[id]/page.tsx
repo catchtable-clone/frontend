@@ -2,13 +2,18 @@
 
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Star, Clock, MapPin, Heart } from 'lucide-react';
+import { Star, Clock, MapPin, Heart, Check, Plus } from 'lucide-react';
 import { DayPicker } from 'react-day-picker';
 import { ko } from 'react-day-picker/locale';
 import 'react-day-picker/style.css';
 import Header from '@/components/common/Header';
-import { mockStores, mockMenus, mockFullyBookedDays } from '@/lib/mockData';
+import BottomSheet from '@/components/common/BottomSheet';
+import CenteredModal from '@/components/common/CenteredModal';
+import { mockStores, mockMenus, mockFullyBookedDays, mockBookmarkFolders, mockStoreReviews } from '@/lib/mockData';
+import StarRating from '@/components/common/StarRating';
 import { formatDateParts } from '@/lib/utils';
+import FolderFormModal from '@/components/common/FolderFormModal';
+import type { BookmarkFolder } from '@/types/store';
 
 function getNextDays(count: number) {
   const days = [];
@@ -33,6 +38,10 @@ export default function StoreDetail({
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showTimeModal, setShowTimeModal] = useState(false);
+  const [showFolderSheet, setShowFolderSheet] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+  const [folders, setFolders] = useState<BookmarkFolder[]>(mockBookmarkFolders);
+  const [showNewFolder, setShowNewFolder] = useState(false);
 
   const days = getNextDays(14);
   const fullyBookedOffsets = mockFullyBookedDays[Number(id)] || [];
@@ -55,6 +64,10 @@ export default function StoreDetail({
       </>
     );
   }
+
+  const currentFolder = folders.find((f) =>
+    f.storeIds.includes(store.id),
+  ) || null;
 
   const handleReserveClick = () => {
     setSelectedTime(null);
@@ -88,8 +101,31 @@ export default function StoreDetail({
               <span className="text-xs text-gray-400">{store.category}</span>
               <h2 className="text-xl font-bold text-gray-900">{store.name}</h2>
             </div>
-            <button className="rounded-full p-2 hover:bg-gray-100">
-              <Heart size={22} className="text-gray-400" />
+            <button
+              onClick={() => {
+                if (currentFolder) {
+                  setFolders((prev) =>
+                    prev.map((f) =>
+                      f.id === currentFolder.id
+                        ? { ...f, storeIds: f.storeIds.filter((sid) => sid !== store.id) }
+                        : f,
+                    ),
+                  );
+                } else {
+                  setShowFolderSheet(true);
+                }
+              }}
+              className="rounded-full p-2 hover:bg-gray-100"
+            >
+              <Heart
+                size={22}
+                className={
+                  currentFolder
+                    ? 'fill-current'
+                    : 'text-gray-400'
+                }
+                style={currentFolder ? { color: currentFolder.color } : undefined}
+              />
             </button>
           </div>
 
@@ -209,6 +245,51 @@ export default function StoreDetail({
             ))}
           </div>
         </section>
+
+        {/* 리뷰 */}
+        <section className="border-t border-gray-100 px-4 py-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-base font-semibold text-gray-900">
+              리뷰 ({(mockStoreReviews[store.id] || []).length})
+            </h3>
+          </div>
+          {(mockStoreReviews[store.id] || []).length > 0 ? (
+            <div className="flex flex-col gap-4">
+              {(mockStoreReviews[store.id] || []).map((review) => (
+                <div
+                  key={review.id}
+                  className="border-b border-gray-50 pb-4 last:border-b-0 last:pb-0"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
+                        {review.userName[0]}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {review.userName}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <StarRating rating={review.rating} size={12} />
+                          <span className="text-[11px] text-gray-400">
+                            {new Date(review.createdAt).toLocaleDateString('ko-KR')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                    {review.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-4 text-center text-sm text-gray-400">
+              아직 리뷰가 없습니다
+            </p>
+          )}
+        </section>
       </main>
 
       {/* 예약하기 / 빈자리 알림 버튼 */}
@@ -243,14 +324,8 @@ export default function StoreDetail({
 
       {/* 시간 선택 팝업 */}
       {showTimeModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setShowTimeModal(false)}
-          />
-          <div className="relative w-full max-w-[480px] rounded-t-2xl bg-white px-5 pb-5 pt-6">
-
-            {/* 캘린더 */}
+        <BottomSheet onClose={() => setShowTimeModal(false)}>
+          {/* 캘린더 */}
             <DayPicker
               mode="single"
               locale={ko}
@@ -320,8 +395,115 @@ export default function StoreDetail({
             >
               예약하기
             </button>
-          </div>
-        </div>
+        </BottomSheet>
+      )}
+
+      {/* 즐겨찾기 폴더 선택 모달 */}
+      {showFolderSheet && (
+        <CenteredModal onClose={() => setShowFolderSheet(false)}>
+          <h3 className="mb-4 text-lg font-semibold text-gray-900">
+            즐겨찾기 폴더 선택
+          </h3>
+
+            <div className="flex max-h-48 flex-col gap-2 overflow-y-auto">
+              {folders.map((folder) => {
+                const isSelected = selectedFolderId === folder.id;
+                return (
+                  <button
+                    key={folder.id}
+                    onClick={() => setSelectedFolderId(folder.id)}
+                    className={`flex items-center justify-between rounded-lg border px-4 py-3.5 ${
+                      isSelected
+                        ? ''
+                        : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                    style={isSelected ? { borderColor: folder.color, backgroundColor: `${folder.color}15` } : undefined}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="inline-block h-3 w-3 rounded-full"
+                        style={{ backgroundColor: folder.color }}
+                      />
+                      <span
+                        className={`text-sm font-medium ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}
+                      >
+                        {folder.name}
+                      </span>
+                    </div>
+                    {isSelected && (
+                      <Check size={18} style={{ color: folder.color }} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 새 폴더 만들기 */}
+            <button
+              onClick={() => setShowNewFolder(true)}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 py-2.5 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-700"
+            >
+              <Plus size={14} />
+              새 폴더 만들기
+            </button>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => {
+                  if (selectedFolderId) {
+                    setFolders((prev) =>
+                      prev.map((f) => ({
+                        ...f,
+                        storeIds:
+                          f.id === selectedFolderId
+                            ? [...f.storeIds.filter((sid) => sid !== store.id), store.id]
+                            : f.storeIds.filter((sid) => sid !== store.id),
+                      })),
+                    );
+                  }
+                  setShowFolderSheet(false);
+                  setSelectedFolderId(null);
+                }}
+                disabled={!selectedFolderId}
+                className={`flex-1 rounded-lg py-2.5 text-sm font-semibold text-white ${
+                  selectedFolderId
+                    ? 'bg-blue-500 hover:bg-blue-600'
+                    : 'bg-gray-300'
+                }`}
+              >
+                확인
+              </button>
+              <button
+                onClick={() => {
+                  setShowFolderSheet(false);
+                  setSelectedFolderId(null);
+                }}
+                className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                취소
+              </button>
+            </div>
+        </CenteredModal>
+      )}
+
+      {/* 새 폴더 만들기 모달 */}
+      {showNewFolder && (
+        <FolderFormModal
+          mode="create"
+          onSubmit={(name, color) => {
+            const newFolder: BookmarkFolder = {
+              id: Math.max(...folders.map((f) => f.id)) + 1,
+              name,
+              type: 'CUSTOM',
+              color,
+              storeIds: [],
+            };
+            setFolders((prev) => [...prev, newFolder]);
+            setSelectedFolderId(newFolder.id);
+            setShowNewFolder(false);
+          }}
+          onClose={() => setShowNewFolder(false)}
+        />
       )}
     </>
   );
