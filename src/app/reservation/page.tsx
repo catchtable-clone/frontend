@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import Header from '@/components/common/Header';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
+import CenteredModal from '@/components/common/CenteredModal';
+import BottomSheet from '@/components/common/BottomSheet';
 import { mockStores, mockCoupons } from '@/lib/mockData';
 import { formatDate } from '@/lib/utils';
 import type { Coupon } from '@/types/store';
@@ -157,9 +159,8 @@ function ReservationContent() {
 
       {/* 예약 성공 모달 */}
       {showSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" />
-          <div className="relative mx-4 w-full max-w-[360px] rounded-2xl bg-white p-6 text-center">
+        <CenteredModal onClose={() => router.push('/reservations')}>
+          <div className="text-center">
             <CheckCircle size={48} className="mx-auto text-green-500" />
             <h3 className="mt-3 text-lg font-semibold text-gray-900">
               예약이 {isChange ? '변경' : '확정'}되었습니다
@@ -186,22 +187,17 @@ function ReservationContent() {
               예약 내역 보기
             </button>
           </div>
-        </div>
+        </CenteredModal>
       )}
 
       {/* 쿠폰 선택 바텀시트 */}
       {showCouponSheet && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setShowCouponSheet(false)}
-          />
-          <div className="relative w-full max-w-[480px] rounded-t-2xl bg-white px-5 pb-5 pt-6">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              쿠폰 선택
-            </h3>
+        <BottomSheet onClose={() => setShowCouponSheet(false)}>
+          <h3 className="mb-4 text-lg font-semibold text-gray-900">
+            쿠폰 선택
+          </h3>
 
-            {availableCoupons.length === 0 ? (
+          {availableCoupons.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-8">
                 <Ticket size={32} className="text-gray-300" />
                 <p className="text-sm text-gray-400">
@@ -268,14 +264,13 @@ function ReservationContent() {
               </div>
             )}
 
-            <button
-              onClick={() => setShowCouponSheet(false)}
-              className="mt-4 w-full rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
+          <button
+            onClick={() => setShowCouponSheet(false)}
+            className="mt-4 w-full rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            닫기
+          </button>
+        </BottomSheet>
       )}
     </>
   );

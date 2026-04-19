@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Ticket } from 'lucide-react';
 import Header from '@/components/common/Header';
+import Tabs from '@/components/common/Tabs';
 import { mockCoupons } from '@/lib/mockData';
 import { formatDateDot } from '@/lib/utils';
 import type { Coupon, CouponStatus } from '@/types/store';
@@ -78,28 +79,14 @@ export default function MyCouponsPage() {
 
       <main className="flex-1">
         {/* 탭 */}
-        <div className="flex border-b border-gray-200">
-          <button
-            onClick={() => setTab('available')}
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${
-              tab === 'available'
-                ? 'border-b-2 border-orange-500 text-orange-500'
-                : 'text-gray-400'
-            }`}
-          >
-            사용 가능 ({available.length})
-          </button>
-          <button
-            onClick={() => setTab('used')}
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${
-              tab === 'used'
-                ? 'border-b-2 border-orange-500 text-orange-500'
-                : 'text-gray-400'
-            }`}
-          >
-            사용 완료/만료 ({used.length})
-          </button>
-        </div>
+        <Tabs
+          items={[
+            { key: 'available', label: `사용 가능 (${available.length})` },
+            { key: 'used', label: `사용 완료/만료 (${used.length})` },
+          ]}
+          activeKey={tab}
+          onChange={(key) => setTab(key as 'available' | 'used')}
+        />
 
         {/* 쿠폰 목록 */}
         <div className="flex flex-col gap-3 px-4 py-4">

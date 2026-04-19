@@ -35,7 +35,7 @@ function CategoryContent() {
             className={`flex-shrink-0 rounded-full px-4 py-2 text-sm ${
               selectedCategory === null
                 ? 'bg-orange-500 text-white'
-                : 'bg-gray-100 text-gray-600'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors'
             }`}
           >
             전체
@@ -47,7 +47,7 @@ function CategoryContent() {
               className={`flex-shrink-0 rounded-full px-4 py-2 text-sm ${
                 selectedCategory === category.name
                   ? 'bg-orange-500 text-white'
-                  : 'bg-gray-100 text-gray-600'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors'
               }`}
             >
               {category.icon} {category.name}

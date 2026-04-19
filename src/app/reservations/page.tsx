@@ -15,10 +15,13 @@ import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import StarRating from '@/components/common/StarRating';
-import { mockReservations } from '@/lib/mockData';
+import BottomSheet from '@/components/common/BottomSheet';
+import Tabs from '@/components/common/Tabs';
+import LoginRequired from '@/components/common/LoginRequired';
+import { mockReservations, mockVacancySubscriptions } from '@/lib/mockData';
 import { formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
-import type { Reservation, ReservationStatus, Review } from '@/types/store';
+import type { Reservation, ReservationStatus, Review, VacancySubscription } from '@/types/store';
 
 const STATUS_CONFIG: Record<
   ReservationStatus,
@@ -136,10 +139,12 @@ export default function ReservationsPage() {
   const { accessToken } = useAuthStore();
   const isLoggedIn = !!accessToken;
 
-  const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [tab, setTab] = useState<'upcoming' | 'past' | 'vacancy'>('upcoming');
   const [reservations, setReservations] =
     useState<Reservation[]>(mockReservations);
+  const [vacancies, setVacancies] = useState<VacancySubscription[]>(mockVacancySubscriptions);
   const [cancelTarget, setCancelTarget] = useState<number | null>(null);
+  const [vacancyCancelTarget, setVacancyCancelTarget] = useState<number | null>(null);
 
   // 리뷰 작성 상태
   const [reviewTarget, setReviewTarget] = useState<Reservation | null>(null);
@@ -228,14 +233,8 @@ export default function ReservationsPage() {
     return (
       <>
         <Header title="예약" />
-        <main className="flex flex-1 flex-col items-center gap-4 py-16">
-          <p className="text-gray-500">로그인이 필요합니다</p>
-          <button
-            onClick={() => router.push('/login?redirect=/reservations')}
-            className="rounded-lg bg-orange-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-orange-600"
-          >
-            로그인하기
-          </button>
+        <main className="flex-1">
+          <LoginRequired redirectTo="/reservations" />
         </main>
         <BottomNav />
       </>
@@ -248,59 +247,121 @@ export default function ReservationsPage() {
 
       <main className="flex-1">
         {/* 탭 */}
-        <div className="flex border-b border-gray-200">
-          <button
-            onClick={() => setTab('upcoming')}
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${
-              tab === 'upcoming'
-                ? 'border-b-2 border-orange-500 text-orange-500'
-                : 'text-gray-400'
-            }`}
-          >
-            예정된 예약 ({upcoming.length})
-          </button>
-          <button
-            onClick={() => setTab('past')}
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${
-              tab === 'past'
-                ? 'border-b-2 border-orange-500 text-orange-500'
-                : 'text-gray-400'
-            }`}
-          >
-            지난 예약 ({past.length})
-          </button>
-        </div>
+        <Tabs
+          items={[
+            { key: 'upcoming', label: `예정된 예약 (${upcoming.length})` },
+            { key: 'past', label: `지난 예약 (${past.length})` },
+            { key: 'vacancy', label: `빈자리 알림 (${vacancies.length})` },
+          ]}
+          activeKey={tab}
+          onChange={(key) => setTab(key as 'upcoming' | 'past' | 'vacancy')}
+        />
 
         {/* 예약 목록 */}
-        <div className="flex flex-col gap-3 px-4 py-4">
-          {currentList.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-16">
-              <CalendarDays size={40} className="text-gray-300" />
-              <p className="text-sm text-gray-400">
-                {tab === 'upcoming'
-                  ? '예정된 예약이 없습니다'
-                  : '지난 예약 이력이 없습니다'}
-              </p>
-              {tab === 'upcoming' && (
+        {tab !== 'vacancy' && (
+          <div className="flex flex-col gap-3 px-4 py-4">
+            {currentList.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-16">
+                <CalendarDays size={40} className="text-gray-300" />
+                <p className="text-sm text-gray-400">
+                  {tab === 'upcoming'
+                    ? '예정된 예약이 없습니다'
+                    : '지난 예약 이력이 없습니다'}
+                </p>
+                {tab === 'upcoming' && (
+                  <button
+                    onClick={() => router.push('/')}
+                    className="mt-2 rounded-lg bg-orange-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-orange-600"
+                  >
+                    매장 둘러보기
+                  </button>
+                )}
+              </div>
+            ) : (
+              currentList.map((reservation) => (
+                <ReservationCard
+                  key={reservation.id}
+                  reservation={reservation}
+                  onCancel={handleCancel}
+                  onWriteReview={openReviewModal}
+                />
+              ))
+            )}
+          </div>
+        )}
+
+        {/* 빈자리 알림 */}
+        {tab === 'vacancy' && (
+          <div className="flex flex-col gap-3 px-4 py-4">
+            {vacancies.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-16">
+                <CalendarDays size={40} className="text-gray-300" />
+                <p className="text-sm text-gray-400">
+                  구독 중인 빈자리 알림이 없습니다
+                </p>
                 <button
                   onClick={() => router.push('/')}
                   className="mt-2 rounded-lg bg-orange-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-orange-600"
                 >
                   매장 둘러보기
                 </button>
-              )}
-            </div>
-          ) : (
-            currentList.map((reservation) => (
-              <ReservationCard
-                key={reservation.id}
-                reservation={reservation}
-                onCancel={handleCancel}
-                onWriteReview={openReviewModal}
-              />
-            ))
-          )}
-        </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500">
+                  빈자리가 발생하면 알림을 보내드립니다
+                </p>
+                {vacancies.map((sub) => (
+                  <div
+                    key={sub.id}
+                    className="rounded-xl border border-gray-200 bg-white p-4"
+                  >
+                    <div className="flex items-start justify-between">
+                      <button
+                        onClick={() => router.push(`/stores/${sub.storeId}`)}
+                        className="text-left"
+                      >
+                        <span className="text-xs text-gray-400">
+                          {sub.storeCategory}
+                        </span>
+                        <h3 className="text-base font-semibold text-gray-900">
+                          {sub.storeName}
+                        </h3>
+                      </button>
+                      <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-600">
+                        구독 중
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <CalendarDays size={14} className="text-gray-400" />
+                        <span>{formatDate(sub.date)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Clock size={14} className="text-gray-400" />
+                        <span>{sub.time}</span>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        onClick={() => router.push(`/stores/${sub.storeId}`)}
+                        className="flex-1 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        매장 보기
+                      </button>
+                      <button
+                        onClick={() => setVacancyCancelTarget(sub.id)}
+                        className="flex-1 rounded-lg border border-red-200 py-2 text-sm font-medium text-red-500 hover:bg-red-50"
+                      >
+                        구독 취소
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
       </main>
 
       <BottomNav />
@@ -316,20 +377,29 @@ export default function ReservationsPage() {
         />
       )}
 
+      {/* 빈자리 구독 취소 모달 */}
+      {vacancyCancelTarget !== null && (
+        <ConfirmModal
+          title="빈자리 알림을 취소하시겠습니까?"
+          message="취소하면 해당 시간대의 빈자리 알림을 받을 수 없습니다."
+          confirmLabel="취소하기"
+          onConfirm={() => {
+            setVacancies((prev) => prev.filter((s) => s.id !== vacancyCancelTarget));
+            setVacancyCancelTarget(null);
+          }}
+          onCancel={() => setVacancyCancelTarget(null)}
+        />
+      )}
+
       {/* 리뷰 작성 모달 */}
       {reviewTarget && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div
-            className="absolute inset-0 bg-black/40"
+        <BottomSheet onClose={closeReviewModal}>
+          <button
             onClick={closeReviewModal}
-          />
-          <div className="relative w-full max-w-[480px] rounded-t-2xl bg-white px-5 pb-5 pt-6">
-            <button
-              onClick={closeReviewModal}
-              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-            >
-              <X size={20} />
-            </button>
+            className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+          >
+            <X size={20} />
+          </button>
 
             {/* 매장 정보 */}
             <div className="mb-5">
@@ -423,8 +493,7 @@ export default function ReservationsPage() {
             >
               리뷰 등록
             </button>
-          </div>
-        </div>
+        </BottomSheet>
       )}
     </>
   );

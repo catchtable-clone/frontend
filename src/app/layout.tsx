@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist } from 'next/font/google';
 import './globals.css';
 import QueryProvider from '@/lib/QueryProvider';
+import FloatingChat from '@/components/common/FloatingChat';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -22,7 +23,10 @@ export default function RootLayout({
     <html lang="ko" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full flex justify-center bg-gray-100">
         <div className="w-full max-w-[480px] min-h-dvh flex flex-col bg-white">
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            {children}
+            <FloatingChat />
+          </QueryProvider>
         </div>
       </body>
     </html>

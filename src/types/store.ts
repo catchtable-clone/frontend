@@ -44,10 +44,22 @@ export interface Reservation {
 
 export type FolderType = 'DEFAULT' | 'SLACK' | 'CUSTOM';
 
+export const FOLDER_COLORS = [
+  { name: '주황', value: '#f97316' },
+  { name: '빨강', value: '#ef4444' },
+  { name: '파랑', value: '#3b82f6' },
+  { name: '초록', value: '#22c55e' },
+  { name: '보라', value: '#a855f7' },
+  { name: '핑크', value: '#ec4899' },
+  { name: '하늘', value: '#06b6d4' },
+  { name: '노랑', value: '#eab308' },
+] as const;
+
 export interface BookmarkFolder {
   id: number;
   name: string;
   type: FolderType;
+  color: string;
   storeIds: number[];
 }
 
@@ -72,6 +84,32 @@ export interface Coupon {
   discountRate: number;
   status: CouponStatus;
   expiresAt: string;
+}
+
+export interface ChatMessage {
+  id: number;
+  role: 'USER' | 'ASSISTANT';
+  content: string;
+  createdAt: string;
+}
+
+export interface VacancySubscription {
+  id: number;
+  storeId: number;
+  storeName: string;
+  storeCategory: string;
+  date: string;
+  time: string;
+  createdAt: string;
+}
+
+export interface StoreReview {
+  id: number;
+  storeId: number;
+  userName: string;
+  rating: number;
+  content: string;
+  createdAt: string;
 }
 
 export interface Review {
