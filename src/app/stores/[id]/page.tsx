@@ -1,7 +1,7 @@
 'use client';
 
-import { use, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Fragment } from 'react';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { Star, Clock, MapPin, Heart, Check, Plus } from 'lucide-react';
 import { DayPicker } from 'react-day-picker';
 import { ko } from 'react-day-picker/locale';
@@ -9,12 +9,12 @@ import 'react-day-picker/style.css';
 import Header from '@/components/common/Header';
 import BottomSheet from '@/components/common/BottomSheet';
 import CenteredModal from '@/components/common/CenteredModal';
-import { mockStores, mockMenus, mockFullyBookedDays, mockBookmarkFolders, mockStoreReviews } from '@/lib/mockData';
+import { mockBookmarkFolders } from '@/lib/mockData';
 import StarRating from '@/components/common/StarRating';
 import { formatDateParts, formatDateDot } from '@/lib/utils';
 import FolderFormModal from '@/components/common/FolderFormModal';
 import type { BookmarkFolder } from '@/types/store';
-
+import { useStoreDetailQuery, useStoreMenusQuery, useStoreReviewsQuery } from '@/lib/storeQuery';
 function getNextDays(count: number) {
   const days = [];
   const today = new Date();
@@ -26,15 +26,19 @@ function getNextDays(count: number) {
   return days;
 }
 
-export default function StoreDetail({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
+export default function StoreDetail() {
   const router = useRouter();
-  const store = mockStores.find((s) => s.id === Number(id));
-  const menus = mockMenus[Number(id)] || [];
+  const params = useParams();
+  const pathname = usePathname();
+  
+  // 뒤로가기 시 params 객체가 증발/무한대기 하는 Next.js 버그를 완벽 우회 (URL 경로에서 동기적 강제 추출)
+  const id = (params?.id as string) || (pathname?.split('/').pop() as string) || '';
+  
+  // API 연동: 커스텀 훅을 호출하여 실제 DB의 매장 정보를 가져옵니다.
+  // error 객체를 추가로 추출하여 API 실패 시 원인을 파악할 수 있도록 합니다.
+  const { data: store, isLoading, isError, error } = useStoreDetailQuery(id);
+  const { data: menus = [], isLoading: isMenuLoading } = useStoreMenusQuery(id);
+  const { data: reviews = [], isLoading: isReviewLoading } = useStoreReviewsQuery(id);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showTimeModal, setShowTimeModal] = useState(false);
@@ -44,24 +48,68 @@ export default function StoreDetail({
   const [showNewFolder, setShowNewFolder] = useState(false);
 
   const days = getNextDays(14);
-  const fullyBookedOffsets = mockFullyBookedDays[Number(id)] || [];
+  // 백엔드에서 받은 remainDates를 기반으로 예약 불가(마감) 날짜 자동 계산
+  const remainData = store?.remainDates || store?.storeRemains || store?.remains;
+
+  const availableDates = new Set(
+    (remainData || [])
+      .filter((rd: any) => {
+        if (typeof rd === 'string') return true;
+        if (Array.isArray(rd)) return rd[1] > 0;
+        if (typeof rd === 'object' && rd !== null) {
+          const teamCount = rd.remainTeam ?? rd.remainCount ?? rd.teamCount;
+          if (teamCount !== undefined) return Number(teamCount) > 0;
+          return rd.available !== false && rd.isAvailable !== false && rd.hasRemain !== false;
+        }
+        return false;
+      })
+      .map((rd: any) => {
+        let dateVal = rd;
+        if (typeof rd === 'object' && rd !== null) {
+          dateVal = Array.isArray(rd) ? rd[0] : (rd.date || rd.remainDate || rd.remain_date);
+        }
+        if (!dateVal) return '';
+        // Timezone 문제로 인한 날짜(하루 차이) 틀어짐 완벽 방지
+        let y, m, d;
+        if (Array.isArray(dateVal)) {
+          [y, m, d] = dateVal;
+        } else {
+          // 마침표(.) 포맷도 정상적으로 파싱할 수 있도록 정규식 강화
+          const parts = dateVal.toString().split(/[-T\s/.]/);
+          y = parts[0]; m = parts[1]; d = parts[2];
+        }
+        if (!y || !m || !d) return '';
+        return new Date(Number(y), Number(m) - 1, Number(d)).toDateString();
+      })
+  );
   const fullyBookedDates = new Set(
-    fullyBookedOffsets.map((offset) => {
-      const d = new Date();
-      d.setDate(d.getDate() + offset);
-      return d.toDateString();
-    }),
+    days.map(d => d.toDateString()).filter(dStr => remainData ? !availableDates.has(dStr) : false)
   );
   const isSelectedFullyBooked = fullyBookedDates.has(selectedDate.toDateString());
 
-  if (!store) {
+  if (!id || isLoading) {
     return (
-      <>
+      <Fragment key={`loading-${id}`}>
+        <Header title="로딩 중..." showBack />
+        <main className="flex flex-1 items-center justify-center">
+          <p className="text-sm text-gray-400">매장 정보를 불러오는 중입니다...</p>
+        </main>
+      </Fragment>
+    );
+  }
+
+  if (isError || !store) {
+    // API 요청 실패 시 브라우저 콘솔에 에러 원인을 명확히 출력합니다.
+    if (isError) {
+      console.error('매장 상세 정보 조회 API 호출 실패:', error);
+    }
+    return (
+      <Fragment key={`error-${id}`}>
         <Header title="매장 상세" showBack />
         <main className="flex flex-1 items-center justify-center">
           <p className="text-sm text-gray-400">매장을 찾을 수 없습니다</p>
         </main>
-      </>
+      </Fragment>
     );
   }
 
@@ -87,8 +135,8 @@ export default function StoreDetail({
   };
 
   return (
-    <>
-      <Header title={store.name} showBack />
+    <Fragment key={`store-${id}`}>
+      <Header title={store.storeName} showBack />
 
       <main className="flex-1">
         {/* 매장 이미지 */}
@@ -99,7 +147,7 @@ export default function StoreDetail({
           <div className="flex items-start justify-between">
             <div>
               <span className="text-xs text-gray-400">{store.category}</span>
-              <h2 className="text-xl font-bold text-gray-900">{store.name}</h2>
+              <h2 className="text-xl font-bold text-gray-900">{store.storeName}</h2>
             </div>
             <button
               onClick={() => {
@@ -133,7 +181,9 @@ export default function StoreDetail({
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Star size={14} className="fill-orange-400 text-orange-400" />
               <span>
-                {store.rating} ({store.reviewCount})
+                {/* 리뷰 기반 평균 별점 자동 계산 */}
+                {reviews.length > 0 ? (reviews.reduce((acc, cur) => acc + (cur.rating ?? cur.star ?? 0), 0) / reviews.length).toFixed(1) : '0.0'}{' '}
+                ({store?.reviewCount || reviews.length})
               </span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -142,7 +192,7 @@ export default function StoreDetail({
               <button
                 onClick={() =>
                   router.push(
-                    `/map?lat=${store.lat}&lng=${store.lng}&storeId=${store.id}`,
+                    `/map?lat=${store.latitude}&lng=${store.longitude}&storeId=${store.id}`,
                   )
                 }
                 className="ml-1 text-xs text-orange-500 hover:underline"
@@ -164,7 +214,8 @@ export default function StoreDetail({
           <h3 className="mb-3 text-base font-semibold text-gray-900">
             예약 가능 날짜
           </h3>
-          {store.isClosed ? (
+          {/* 백엔드 데이터에 휴무 상태가 없으므로 임시로 false 처리 */}
+          {false ? (
             <p className="text-sm text-gray-400">
               휴업중인 매장은 예약이 불가합니다.
             </p>
@@ -228,61 +279,76 @@ export default function StoreDetail({
         {/* 메뉴 */}
         <section className="px-4 py-4">
           <h3 className="mb-3 text-base font-semibold text-gray-900">메뉴</h3>
-          <div className="flex flex-col gap-4">
-            {menus.map((menu) => (
-              <div key={menu.id} className="flex items-center gap-4">
-                <div className="h-16 w-16 flex-shrink-0 rounded-lg bg-gray-200" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">
-                    {menu.name}
-                  </p>
-                  <p className="text-xs text-gray-500">{menu.description}</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">
-                    {menu.price.toLocaleString()}원
-                  </p>
+          {isMenuLoading ? (
+            <p className="py-4 text-center text-sm text-gray-400">메뉴를 불러오는 중입니다...</p>
+          ) : menus.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              {menus.map((menu) => (
+                <div key={menu.id} className="flex items-center gap-4">
+                  {/* 추후 백엔드에서 이미지 URL을 제공하면 img 태그로 변경 가능 */}
+                  <div className="h-16 w-16 flex-shrink-0 rounded-lg bg-gray-200" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">
+                      {menu.name}
+                    </p>
+                    <p className="text-xs text-gray-500">{menu.description}</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">
+                      {menu.price?.toLocaleString()}원
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-4 text-center text-sm text-gray-400">등록된 메뉴가 없습니다.</p>
+          )}
         </section>
 
         {/* 리뷰 */}
         <section className="border-t border-gray-100 px-4 py-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-base font-semibold text-gray-900">
-              리뷰 ({(mockStoreReviews[store.id] || []).length})
+              리뷰 ({store?.reviewCount || reviews.length})
             </h3>
           </div>
-          {(mockStoreReviews[store.id] || []).length > 0 ? (
+          {isReviewLoading ? (
+            <p className="py-4 text-center text-sm text-gray-400">리뷰를 불러오는 중입니다...</p>
+          ) : reviews.length > 0 ? (
             <div className="flex flex-col gap-4">
-              {(mockStoreReviews[store.id] || []).map((review) => (
-                <div
-                  key={review.id}
-                  className="border-b border-gray-50 pb-4 last:border-b-0 last:pb-0"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
-                        {review.userName[0]}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {review.userName}
-                        </p>
-                        <div className="flex items-center gap-1.5">
-                          <StarRating rating={review.rating} size={12} />
-                          <span className="text-[11px] text-gray-400">
-                            {formatDateDot(review.createdAt)}
-                          </span>
+              {reviews.map((review, index) => {
+                const reviewKey = review.id || review.reviewId || `review-${index}`;
+                const reviewerName = review.userName || review.user?.name || review.user?.nickname || review.nickname || '익명';
+                const rating = review.rating ?? review.star ?? 0;
+                
+                return (
+                  <div
+                    key={reviewKey}
+                    className="border-b border-gray-50 pb-4 last:border-b-0 last:pb-0"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
+                          {reviewerName[0]}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {reviewerName}
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <StarRating rating={rating} size={12} />
+                            <span className="text-[11px] text-gray-400">
+                              {formatDateDot(review.createdAt || new Date().toISOString())}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
+                    <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                      {review.content}
+                    </p>
                   </div>
-                  <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                    {review.content}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="py-4 text-center text-sm text-gray-400">
@@ -294,7 +360,8 @@ export default function StoreDetail({
 
       {/* 예약하기 / 빈자리 알림 버튼 */}
       <div className="sticky bottom-0 border-t border-gray-200 bg-white px-4 py-3">
-        {store.isClosed ? (
+        {/* 백엔드 데이터에 휴무 상태가 없으므로 임시로 false 처리 */}
+        {false ? (
           <button
             disabled
             className="w-full cursor-not-allowed rounded-lg bg-gray-300 py-3 text-sm font-semibold text-white"
@@ -505,6 +572,6 @@ export default function StoreDetail({
           onClose={() => setShowNewFolder(false)}
         />
       )}
-    </>
+    </Fragment>
   );
 }
