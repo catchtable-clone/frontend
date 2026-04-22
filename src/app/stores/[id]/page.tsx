@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, Fragment } from 'react';
-import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useState, Fragment, useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { Star, Clock, MapPin, Heart, Check, Plus } from 'lucide-react';
 import { DayPicker } from 'react-day-picker';
 import { ko } from 'react-day-picker/locale';
@@ -13,7 +13,7 @@ import { mockBookmarkFolders } from '@/lib/mockData';
 import StarRating from '@/components/common/StarRating';
 import { formatDateParts, formatDateDot } from '@/lib/utils';
 import FolderFormModal from '@/components/common/FolderFormModal';
-import type { BookmarkFolder } from '@/types/store';
+import type { BookmarkFolder, StoreRemain } from '@/types/store';
 import { useStoreDetailQuery, useStoreMenusQuery, useStoreReviewsQuery } from '@/lib/storeQuery';
 function getNextDays(count: number) {
   const days = [];
@@ -28,11 +28,9 @@ function getNextDays(count: number) {
 
 export default function StoreDetail() {
   const router = useRouter();
-  const params = useParams();
-  const pathname = usePathname();
+  const params = useParams<{ id: string }>();
   
-  // 뒤로가기 시 params 객체가 증발/무한대기 하는 Next.js 버그를 완벽 우회 (URL 경로에서 동기적 강제 추출)
-  const id = (params?.id as string) || (pathname?.split('/').pop() as string) || '';
+  const id = params?.id || '';
   
   // API 연동: 커스텀 훅을 호출하여 실제 DB의 매장 정보를 가져옵니다.
   // error 객체를 추가로 추출하여 API 실패 시 원인을 파악할 수 있도록 합니다.
@@ -47,37 +45,45 @@ export default function StoreDetail() {
   const [folders, setFolders] = useState<BookmarkFolder[]>(mockBookmarkFolders);
   const [showNewFolder, setShowNewFolder] = useState(false);
 
+  const averageRating = useMemo(() => {
+    if (!reviews || reviews.length === 0) return '0.0';
+    const sum = reviews.reduce((acc, cur) => acc + (cur.rating ?? cur.star ?? 0), 0);
+    return (sum / reviews.length).toFixed(1);
+  }, [reviews]);
+
   const days = getNextDays(14);
   // 백엔드에서 받은 remainDates를 기반으로 예약 불가(마감) 날짜 자동 계산
   const remainData = store?.remainDates || store?.storeRemains || store?.remains;
 
   const availableDates = new Set(
     (remainData || [])
-      .filter((rd: any) => {
+      .filter((rd: unknown) => {
         if (typeof rd === 'string') return true;
         if (Array.isArray(rd)) return rd[1] > 0;
-        if (typeof rd === 'object' && rd !== null) {
-          const teamCount = rd.remainTeam ?? rd.remainCount ?? rd.teamCount;
+        if (typeof rd === 'object' && rd !== null && !Array.isArray(rd)) {
+          const typedRd = rd as StoreRemain;
+          const teamCount = typedRd.remainTeam ?? typedRd.remainCount ?? typedRd.teamCount;
           if (teamCount !== undefined) return Number(teamCount) > 0;
-          return rd.available !== false && rd.isAvailable !== false && rd.hasRemain !== false;
+          return typedRd.available !== false && typedRd.isAvailable !== false && typedRd.hasRemain !== false;
         }
         return false;
       })
-      .map((rd: any) => {
-        let dateVal = rd;
-        if (typeof rd === 'object' && rd !== null) {
-          dateVal = Array.isArray(rd) ? rd[0] : (rd.date || rd.remainDate || rd.remain_date);
+      .map((rd: unknown) => {
+        let dateVal: string | undefined;
+        if (typeof rd === 'string') {
+          dateVal = rd;
+        } else if (Array.isArray(rd)) {
+          dateVal = rd[0];
+        } else if (typeof rd === 'object' && rd !== null) {
+          const typedRd = rd as StoreRemain;
+          dateVal = typedRd.date || typedRd.remainDate || typedRd.remain_date;
         }
         if (!dateVal) return '';
-        // Timezone 문제로 인한 날짜(하루 차이) 틀어짐 완벽 방지
-        let y, m, d;
-        if (Array.isArray(dateVal)) {
-          [y, m, d] = dateVal;
-        } else {
-          // 마침표(.) 포맷도 정상적으로 파싱할 수 있도록 정규식 강화
-          const parts = dateVal.toString().split(/[-T\s/.]/);
-          y = parts[0]; m = parts[1]; d = parts[2];
-        }
+        
+        const parts = dateVal.toString().split(/[-T\s/.]/);
+        const y = parts[0];
+        const m = parts[1];
+        const d = parts[2];
         if (!y || !m || !d) return '';
         return new Date(Number(y), Number(m) - 1, Number(d)).toDateString();
       })
@@ -182,7 +188,7 @@ export default function StoreDetail() {
               <Star size={14} className="fill-orange-400 text-orange-400" />
               <span>
                 {/* 리뷰 기반 평균 별점 자동 계산 */}
-                {reviews.length > 0 ? (reviews.reduce((acc, cur) => acc + (cur.rating ?? cur.star ?? 0), 0) / reviews.length).toFixed(1) : '0.0'}{' '}
+                {averageRating}{' '}
                 ({store?.reviewCount || reviews.length})
               </span>
             </div>
@@ -337,7 +343,7 @@ export default function StoreDetail() {
                           <div className="flex items-center gap-1.5">
                             <StarRating rating={rating} size={12} />
                             <span className="text-[11px] text-gray-400">
-                              {formatDateDot(review.createdAt || new Date().toISOString())}
+                              {review.createdAt ? formatDateDot(review.createdAt) : ''}
                             </span>
                           </div>
                         </div>
