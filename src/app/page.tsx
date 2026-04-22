@@ -3,14 +3,21 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Ticket, Clock, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
 import StoreCard from '@/components/store/StoreCard';
 import CenteredModal from '@/components/common/CenteredModal';
-import { mockCategories, mockStores } from '@/lib/mockData';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { mockCategories } from '@/lib/mockData';
+import { searchStoresByName } from '@/lib/api/stores';
 
 export default function Home() {
-  const popularStores = mockStores.slice(0, 3);
+  const { data: stores = [], isLoading } = useQuery({
+    queryKey: ['stores', 'all'],
+    queryFn: () => searchStoresByName(''),
+  });
+  const popularStores = stores.slice(0, 3);
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [claimed, setClaimed] = useState(false);
 
@@ -70,23 +77,29 @@ export default function Home() {
           <h2 className="mb-3 text-base font-semibold text-gray-900">
             인기 매장
           </h2>
-          <div className="flex gap-3 overflow-x-auto scrollbar-hide">
-            {popularStores.map((store) => (
-              <Link
-                key={store.id}
-                href={`/stores/${store.id}`}
-                className="flex w-36 flex-shrink-0 flex-col gap-2 rounded-xl p-2 transition-colors hover:bg-gray-50"
-              >
-                <div className="h-24 w-full rounded-lg bg-gray-200" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {store.name}
-                  </p>
-                  <p className="text-xs text-gray-500">{store.category}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide">
+              {popularStores.map((store) => (
+                <Link
+                  key={store.id}
+                  href={`/stores/${store.id}`}
+                  className="flex w-36 flex-shrink-0 flex-col gap-2 rounded-xl p-2 transition-colors hover:bg-gray-50"
+                >
+                  <div className="h-24 w-full rounded-lg bg-gray-200" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {store.name}
+                    </p>
+                    <p className="text-xs text-gray-500">{store.category}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* 내 주변 매장 */}
@@ -94,11 +107,17 @@ export default function Home() {
           <h2 className="mb-1 text-base font-semibold text-gray-900">
             내 주변 매장
           </h2>
-          <div>
-            {mockStores.map((store) => (
-              <StoreCard key={store.id} store={store} />
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <div>
+              {stores.map((store) => (
+                <StoreCard key={store.id} store={store} />
+              ))}
+            </div>
+          )}
         </section>
       </main>
       <BottomNav />
