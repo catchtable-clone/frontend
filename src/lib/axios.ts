@@ -2,7 +2,8 @@ import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1',
+  // CORS 우회를 위해 프록시(next.config.mjs)를 타도록 상대 경로로 변경합니다.
+  baseURL: '/api/v1',
   timeout: 10000,
 });
 
