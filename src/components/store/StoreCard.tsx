@@ -42,14 +42,18 @@ export default function StoreCard({ store }: StoreCardProps) {
         <h3 className="text-sm font-semibold text-gray-900">{store.name}</h3>
         <p className="text-xs text-gray-500">{store.address}</p>
         <div className="flex items-center gap-3 text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            <Star size={12} className="fill-orange-400 text-orange-400" />
-            {store.rating}
-          </span>
-          <span className="flex items-center gap-1">
-            <Clock size={12} />
-            {isClosed ? '휴업중' : `${store.openTime} - ${store.closeTime}`}
-          </span>
+          {store.rating > 0 && (
+            <span className="flex items-center gap-1">
+              <Star size={12} className="fill-orange-400 text-orange-400" />
+              {store.rating}
+            </span>
+          )}
+          {(isClosed || (store.openTime && store.closeTime)) && (
+            <span className="flex items-center gap-1">
+              <Clock size={12} />
+              {isClosed ? '휴업중' : `${store.openTime} - ${store.closeTime}`}
+            </span>
+          )}
         </div>
       </div>
     </Link>
