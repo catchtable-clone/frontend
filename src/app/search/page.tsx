@@ -2,13 +2,15 @@
 
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
 import StoreCard from '@/components/store/StoreCard';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import FilterDropdown from '@/components/common/FilterDropdown';
-import { mockStores, mockCategories } from '@/lib/mockData';
-import { filterStores } from '@/lib/utils';
+import { mockCategories } from '@/lib/mockData';
+import { searchStoresByName } from '@/lib/api/stores';
+import { DISTRICT_LABEL } from '@/types/store';
 
 type SortKey = 'default' | 'rating' | 'review';
 
@@ -23,18 +25,10 @@ const CATEGORY_OPTIONS = mockCategories.map((c) => ({
   label: `${c.icon} ${c.name}`,
 }));
 
-const REGIONS = Array.from(
-  new Set(
-    mockStores
-      .map((s) => {
-        const match = s.address.match(/서울\s+(\S+구)/);
-        return match ? match[1] : '';
-      })
-      .filter(Boolean),
-  ),
-);
-
-const REGION_OPTIONS = REGIONS.map((r) => ({ key: r, label: r }));
+const REGION_OPTIONS = Object.values(DISTRICT_LABEL).map((r) => ({
+  key: r,
+  label: r,
+}));
 
 function SearchContent() {
   const searchParams = useSearchParams();
@@ -44,7 +38,12 @@ function SearchContent() {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('default');
 
-  let results = filterStores(mockStores, query);
+  const { data: stores = [], isLoading } = useQuery({
+    queryKey: ['stores', 'search', query],
+    queryFn: () => searchStoresByName(query),
+  });
+
+  let results = stores;
 
   if (selectedCategory) {
     results = results.filter((s) => s.category === selectedCategory);
@@ -88,19 +87,27 @@ function SearchContent() {
 
         {/* 검색 결과 */}
         <div className="px-4 py-3">
-          <p className="mb-3 text-sm text-gray-500">
-            &apos;{query}&apos; 검색 결과 {results.length}건
-          </p>
-          {results.length > 0 ? (
-            <div>
-              {results.map((store) => (
-                <StoreCard key={store.id} store={store} />
-              ))}
+          {isLoading ? (
+            <div className="flex justify-center py-20">
+              <LoadingSpinner />
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-              <p className="text-sm">검색 결과가 없습니다.</p>
-            </div>
+            <>
+              <p className="mb-3 text-sm text-gray-500">
+                &apos;{query}&apos; 검색 결과 {results.length}건
+              </p>
+              {results.length > 0 ? (
+                <div>
+                  {results.map((store) => (
+                    <StoreCard key={store.id} store={store} />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                  <p className="text-sm">검색 결과가 없습니다.</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
