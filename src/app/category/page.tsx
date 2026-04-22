@@ -2,19 +2,27 @@
 
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
 import StoreCard from '@/components/store/StoreCard';
-import { mockCategories, mockStores } from '@/lib/mockData';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { mockCategories } from '@/lib/mockData';
+import { searchStoresByName } from '@/lib/api/stores';
 
 function CategoryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedCategory = searchParams.get('selected');
 
+  const { data: stores = [], isLoading } = useQuery({
+    queryKey: ['stores', 'all'],
+    queryFn: () => searchStoresByName(''),
+  });
+
   const filteredStores = selectedCategory
-    ? mockStores.filter((store) => store.category === selectedCategory)
-    : mockStores;
+    ? stores.filter((store) => store.category === selectedCategory)
+    : stores;
 
   const handleCategoryClick = (categoryName: string | null) => {
     if (categoryName) {
@@ -57,7 +65,11 @@ function CategoryContent() {
 
         {/* 매장 목록 */}
         <div className="px-4">
-          {filteredStores.length > 0 ? (
+          {isLoading ? (
+            <div className="flex justify-center py-16">
+              <LoadingSpinner />
+            </div>
+          ) : filteredStores.length > 0 ? (
             filteredStores.map((store) => (
               <StoreCard key={store.id} store={store} />
             ))
