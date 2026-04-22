@@ -14,7 +14,7 @@ import StarRating from '@/components/common/StarRating';
 import { formatDateParts, formatDateDot } from '@/lib/utils';
 import FolderFormModal from '@/components/common/FolderFormModal';
 import type { BookmarkFolder, StoreRemain } from '@/types/store';
-import { useStoreDetailQuery, useStoreMenusQuery, useStoreReviewsQuery } from '@/lib/storeQuery';
+import { useStoreDetailQuery, useStoreMenusQuery, useStoreReviewsQuery, useStoreTimesQuery } from '@/lib/storeQuery';
 function getNextDays(count: number) {
   const days = [];
   const today = new Date();
@@ -39,11 +39,15 @@ export default function StoreDetail() {
   const { data: reviews = [], isLoading: isReviewLoading } = useStoreReviewsQuery(id);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedRemainId, setSelectedRemainId] = useState<number | null>(null);
   const [showTimeModal, setShowTimeModal] = useState(false);
   const [showFolderSheet, setShowFolderSheet] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [folders, setFolders] = useState<BookmarkFolder[]>(mockBookmarkFolders);
   const [showNewFolder, setShowNewFolder] = useState(false);
+
+  const formattedSelectedDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+  const { data: times = [], isLoading: isTimesLoading } = useStoreTimesQuery(id, formattedSelectedDate);
 
   const averageRating = useMemo(() => {
     if (!reviews || reviews.length === 0) return '0.0';
@@ -125,18 +129,15 @@ export default function StoreDetail() {
 
   const handleReserveClick = () => {
     setSelectedTime(null);
+    setSelectedRemainId(null);
     setShowTimeModal(true);
   };
 
-  const handleTimeClick = (time: string) => {
-    setSelectedTime(time);
-  };
-
   const handleConfirmReservation = () => {
-    if (!selectedTime) return;
+    if (!selectedTime || !selectedRemainId) return;
     setShowTimeModal(false);
     router.push(
-      `/reservation?storeId=${store.id}&date=${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}&time=${selectedTime}`,
+      `/reservation?storeId=${store?.id || id}&date=${formattedSelectedDate}&time=${selectedTime}&remainId=${selectedRemainId}`,
     );
   };
 
@@ -439,20 +440,38 @@ export default function StoreDetail() {
                 가능 시간
               </p>
               <div className="grid grid-cols-5 gap-2">
-                {['11:00', '12:00', '13:00', '18:00', '19:00', '20:00'].map(
-                  (time) => (
+                {isTimesLoading ? (
+                  <p className="col-span-5 py-4 text-center text-sm text-gray-400">시간을 불러오는 중...</p>
+                ) : times.length > 0 ? (
+                  times.map((t, index) => {
+                    const tTime = t.time || t.remainTime || t.remain_time || '';
+                    const displayTime = tTime.length > 5 ? tTime.substring(0, 5) : tTime;
+                    const isFull = (t.remainTeam ?? t.remainCount ?? t.teamCount ?? 0) <= 0;
+                    const targetId = t.id ?? t.remainId ?? t.remain_id;
+                    return (
                     <button
-                      key={time}
-                      onClick={() => handleTimeClick(time)}
+                      key={targetId ?? `time-${index}`}
+                      onClick={() => {
+                        if (!isFull && targetId) {
+                          setSelectedTime(displayTime);
+                          setSelectedRemainId(targetId);
+                        }
+                      }}
+                      disabled={isFull}
                       className={`rounded-lg border py-2 text-sm font-medium ${
-                        selectedTime === time
+                        selectedTime === displayTime
                           ? 'border-orange-500 bg-orange-50 text-orange-500'
+                          : isFull
+                          ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
                           : 'border-gray-200 text-gray-700 hover:border-orange-500 hover:text-orange-500'
                       }`}
                     >
-                      {time}
+                      {displayTime}
                     </button>
-                  ),
+                    );
+                  })
+                ) : (
+                  <p className="col-span-5 py-4 text-center text-sm text-gray-400">예약 가능한 시간이 없습니다.</p>
                 )}
               </div>
             </div>

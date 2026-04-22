@@ -1,5 +1,5 @@
 import api from '@/lib/axios';
-import { StoreDetail, Menu, Review } from '@/types/store';
+import { StoreDetail, Menu, Review, StoreRemain } from '@/types/store';
 
 /**
  * 특정 ID를 가진 매장의 상세 정보를 조회하는 API 함수
@@ -44,4 +44,15 @@ export const getStoreReviews = async (storeId: string): Promise<Review[]> => {
     }
     throw error;
   }
+};
+
+/**
+ * 특정 매장의 특정 날짜 예약 시간대 목록을 조회하는 API 함수
+ * @param storeId - 매장 ID
+ * @param date - 조회할 날짜 (YYYY-MM-DD)
+ */
+export const getStoreTimes = async (storeId: string, date: string): Promise<StoreRemain[]> => {
+  // 백엔드 명세에 맞춰 /remains 엔드포인트에 쿼리 파라미터로 storeId와 date를 전달합니다.
+  const response = await api.get(`/remains`, { params: { storeId, date } });
+  return (response.data.data || response.data.result || response.data) as StoreRemain[];
 };

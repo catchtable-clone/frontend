@@ -19,9 +19,15 @@ export interface StoreDetail {
 }
 
 export interface StoreRemain {
+  id?: number;
+  remainId?: number;
+  remain_id?: number;
   date?: string;
   remainDate?: string;
   remain_date?: string;
+  time?: string;
+  remainTime?: string;
+  remain_time?: string;
   available?: boolean;
   isAvailable?: boolean;
   hasRemain?: boolean;
