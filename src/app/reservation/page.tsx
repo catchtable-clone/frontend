@@ -103,8 +103,7 @@ function ReservationContent() {
         {/* 매장 정보 */}
         <section className="border-b border-gray-100 px-4 py-5">
           <span className="text-xs text-gray-400">{store.category}</span>
-        <h2 className="text-lg font-bold text-gray-900">{store.storeName || (store as any).name}</h2>
-          <p className="mt-1 text-sm text-gray-500">{store.address}</p>
+          <h2 className="text-lg font-bold text-gray-900">{store.storeName}</h2>
         </section>
 
         {/* 예약 정보 */}
@@ -209,7 +208,7 @@ function ReservationContent() {
               예약이 {isChange ? '변경' : '확정'}되었습니다
             </h3>
             <div className="mt-3 rounded-lg bg-gray-50 px-4 py-3 text-left">
-              <p className="text-sm font-medium text-gray-900">{store.storeName || (store as any).name}</p>
+              <p className="text-sm font-medium text-gray-900">{store.storeName}</p>
               <p className="mt-1 text-sm text-gray-600">
                 {formatDate(date)} {time} / {guestCount}명
               </p>

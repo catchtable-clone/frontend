@@ -56,32 +56,13 @@ export default function StoreDetail() {
   }, [reviews]);
 
   const days = getNextDays(14);
-  // 백엔드에서 받은 remainDates를 기반으로 예약 불가(마감) 날짜 자동 계산
-  const remainData = store?.remainDates || store?.storeRemains || store?.remains;
+  const remainData = store?.remainDates || [];
 
   const availableDates = new Set(
-    (remainData || [])
-      .filter((rd: unknown) => {
-        if (typeof rd === 'string') return true;
-        if (Array.isArray(rd)) return rd[1] > 0;
-        if (typeof rd === 'object' && rd !== null && !Array.isArray(rd)) {
-          const typedRd = rd as StoreRemain;
-          const teamCount = typedRd.remainTeam ?? typedRd.remainCount ?? typedRd.teamCount;
-          if (teamCount !== undefined) return Number(teamCount) > 0;
-          return typedRd.available !== false && typedRd.isAvailable !== false && typedRd.hasRemain !== false;
-        }
-        return false;
-      })
-      .map((rd: unknown) => {
-        let dateVal: string | undefined;
-        if (typeof rd === 'string') {
-          dateVal = rd;
-        } else if (Array.isArray(rd)) {
-          dateVal = rd[0];
-        } else if (typeof rd === 'object' && rd !== null) {
-          const typedRd = rd as StoreRemain;
-          dateVal = typedRd.date || typedRd.remainDate || typedRd.remain_date;
-        }
+    remainData
+      .filter((rd) => rd.remainTeam > 0 || rd.isAvailable)
+      .map((rd) => {
+        const dateVal = rd.date;
         if (!dateVal) return '';
         
         const parts = dateVal.toString().split(/[-T\s/.]/);
@@ -93,7 +74,7 @@ export default function StoreDetail() {
       })
   );
   const fullyBookedDates = new Set(
-    days.map(d => d.toDateString()).filter(dStr => remainData ? !availableDates.has(dStr) : false)
+    days.map(d => d.toDateString()).filter(dStr => store?.remainDates ? !availableDates.has(dStr) : false)
   );
   const isSelectedFullyBooked = fullyBookedDates.has(selectedDate.toDateString());
 
@@ -444,17 +425,16 @@ export default function StoreDetail() {
                   <p className="col-span-5 py-4 text-center text-sm text-gray-400">시간을 불러오는 중...</p>
                 ) : times.length > 0 ? (
                   times.map((t, index) => {
-                    const tTime = t.time || t.remainTime || t.remain_time || '';
+                    const tTime = t.time || '';
                     const displayTime = tTime.length > 5 ? tTime.substring(0, 5) : tTime;
-                    const isFull = (t.remainTeam ?? t.remainCount ?? t.teamCount ?? 0) <= 0;
-                    const targetId = t.id ?? t.remainId ?? t.remain_id;
+                    const isFull = t.remainTeam <= 0 && !t.isAvailable;
                     return (
                     <button
-                      key={targetId ?? `time-${index}`}
+                      key={t.id || `time-${index}`}
                       onClick={() => {
-                        if (!isFull && targetId) {
+                        if (!isFull && t.id) {
                           setSelectedTime(displayTime);
-                          setSelectedRemainId(targetId);
+                          setSelectedRemainId(t.id);
                         }
                       }}
                       disabled={isFull}

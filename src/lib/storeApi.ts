@@ -12,6 +12,24 @@ export const getStoreDetail = async (storeId: string): Promise<StoreDetail> => {
   // 백엔드가 공통 응답 형식(예: { status: 200, data: {...} })으로 감싸서 보낼 경우 알맹이 추출
   const storeData = response.data.data || response.data.result || response.data;
   
+  // 데이터 정규화 (Normalization)
+  const rawRemains = storeData.remainDates || storeData.storeRemains || storeData.remains || [];
+  storeData.remainDates = rawRemains.map((rd: any) => {
+    if (typeof rd === 'string') return { date: rd, isAvailable: true, remainTeam: 1 } as StoreRemain;
+    if (Array.isArray(rd)) return { date: rd[0], isAvailable: rd[1] > 0, remainTeam: rd[1] } as StoreRemain;
+    if (typeof rd === 'object' && rd !== null) {
+      const remainTeam = rd.remainTeam ?? rd.remainCount ?? rd.teamCount ?? 0;
+      return {
+        id: rd.id ?? rd.remainId ?? rd.remain_id ?? 0,
+        date: rd.date ?? rd.remainDate ?? rd.remain_date ?? '',
+        time: rd.time ?? rd.remainTime ?? rd.remain_time ?? '',
+        isAvailable: rd.available ?? rd.isAvailable ?? rd.hasRemain ?? (remainTeam > 0),
+        remainTeam: remainTeam,
+      } as StoreRemain;
+    }
+    return { id: 0, date: '', time: '', isAvailable: false, remainTeam: 0 } as StoreRemain;
+  });
+
   return storeData as StoreDetail;
 };
 
@@ -54,5 +72,17 @@ export const getStoreReviews = async (storeId: string): Promise<Review[]> => {
 export const getStoreTimes = async (storeId: string, date: string): Promise<StoreRemain[]> => {
   // 백엔드 명세에 맞춰 /remains 엔드포인트에 쿼리 파라미터로 storeId와 date를 전달합니다.
   const response = await api.get(`/remains`, { params: { storeId, date } });
-  return (response.data.data || response.data.result || response.data) as StoreRemain[];
+  const rawData = response.data.data || response.data.result || response.data || [];
+
+  // 데이터 정규화 (Normalization)
+  return rawData.map((t: any) => {
+    const remainTeam = t.remainTeam ?? t.remainCount ?? t.teamCount ?? 0;
+    return {
+      id: t.id ?? t.remainId ?? t.remain_id ?? 0,
+      date: t.date ?? t.remainDate ?? t.remain_date ?? '',
+      time: t.time ?? t.remainTime ?? t.remain_time ?? '',
+      isAvailable: t.available ?? t.isAvailable ?? t.hasRemain ?? (remainTeam > 0),
+      remainTeam: remainTeam,
+    } as StoreRemain;
+  });
 };

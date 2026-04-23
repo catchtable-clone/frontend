@@ -14,26 +14,14 @@ export interface StoreDetail {
   reviewCount?: number;
   bookmarkCount?: number;
   remainDates?: StoreRemain[];
-  storeRemains?: StoreRemain[] | string[] | unknown[][];
-  remains?: StoreRemain[] | string[] | unknown[][];
 }
 
 export interface StoreRemain {
-  id?: number;
-  remainId?: number;
-  remain_id?: number;
-  date?: string;
-  remainDate?: string;
-  remain_date?: string;
-  time?: string;
-  remainTime?: string;
-  remain_time?: string;
-  available?: boolean;
-  isAvailable?: boolean;
-  hasRemain?: boolean;
-  remainTeam?: number;
-  remainCount?: number;
-  teamCount?: number;
+  id: number;
+  date: string;
+  time: string;
+  isAvailable: boolean;
+  remainTeam: number;
 }
 
 /**
