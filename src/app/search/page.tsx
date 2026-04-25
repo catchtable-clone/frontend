@@ -41,6 +41,7 @@ function SearchContent() {
   const { data: stores = [], isLoading } = useQuery({
     queryKey: ['stores', 'search', query],
     queryFn: () => searchStoresByName(query),
+    enabled: query.length > 0,
   });
 
   let results = stores;

@@ -10,12 +10,12 @@ import StoreCard from '@/components/store/StoreCard';
 import CenteredModal from '@/components/common/CenteredModal';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { mockCategories } from '@/lib/mockData';
-import { searchStoresByName } from '@/lib/api/stores';
+import { getPopularStores } from '@/lib/api/stores';
 
 export default function Home() {
   const { data: stores = [], isLoading } = useQuery({
-    queryKey: ['stores', 'all'],
-    queryFn: () => searchStoresByName(''),
+    queryKey: ['stores', 'popular'],
+    queryFn: () => getPopularStores(),
   });
   const popularStores = stores.slice(0, 3);
   const [showCouponModal, setShowCouponModal] = useState(false);

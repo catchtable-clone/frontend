@@ -35,6 +35,13 @@ export async function searchStoresByName(name: string): Promise<Store[]> {
   return res.data.data.map(toStore);
 }
 
+export async function getPopularStores(): Promise<Store[]> {
+  const res = await api.get<ApiEnvelope<StoreListResponseDto[]>>(
+    '/stores/popular',
+  );
+  return res.data.data.map(toStore);
+}
+
 export async function getStoresByDistrict(
   district: BackendDistrict,
 ): Promise<Store[]> {
