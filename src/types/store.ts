@@ -1,33 +1,57 @@
-export interface Store {
+/**
+ * 백엔드에서 넘어오는 Store(매장) 데이터의 상세 정보를 위한 타입
+ */
+export interface StoreDetail {
   id: number;
-  name: string;
+  storeName: string;
   category: string;
   address: string;
-  rating: number;
-  reviewCount: number;
-  imageUrl: string;
+  district: string;
+  latitude: number;
+  longitude: number;
   openTime: string;
   closeTime: string;
-  lat: number;
-  lng: number;
-  isClosed?: boolean;
+  reviewCount?: number;
+  bookmarkCount?: number;
+  remainDates?: StoreRemain[];
+}
+
+export interface StoreRemain {
+  id: number;
+  date: string;
+  time: string;
+  isAvailable: boolean;
+  remainTeam: number;
+}
+
+/**
+ * 아래는 기존 UI 컴포넌트(북마크, 예약, 리뷰 등)에서 사용되는 타입 및 상수들입니다.
+ */
+
+export const FOLDER_COLORS = [
+  '#EF4444', '#F97316', '#EAB308', '#22C55E', 
+  '#3B82F6', '#A855F7', '#EC4899', '#6B7280'
+];
+
+export interface BookmarkFolder {
+  id: number;
+  name: string;
+  color: string;
+  type?: string;
+  storeIds: number[];
+  count?: number;
 }
 
 export interface Menu {
   id: number;
+  storeId: number;
   name: string;
-  price: number;
   description: string;
-  imageUrl: string;
+  price: number;
+  menuImage?: string;
 }
 
-export interface Category {
-  id: number;
-  name: string;
-  icon: string;
-}
-
-export type ReservationStatus = 'CONFIRMED' | 'CANCELLED' | 'NOSHOW' | 'VISITED';
+export type ReservationStatus = 'CONFIRMED' | 'VISITED' | 'CANCELLED' | 'NOSHOW';
 
 export interface Reservation {
   id: number;
@@ -38,59 +62,22 @@ export interface Reservation {
   time: string;
   guestCount: number;
   status: ReservationStatus;
-  createdAt: string;
   reviewId?: number;
 }
 
-export type FolderType = 'DEFAULT' | 'SLACK' | 'CUSTOM';
-
-export const FOLDER_COLORS = [
-  { name: '주황', value: '#f97316' },
-  { name: '빨강', value: '#ef4444' },
-  { name: '파랑', value: '#3b82f6' },
-  { name: '초록', value: '#22c55e' },
-  { name: '보라', value: '#a855f7' },
-  { name: '핑크', value: '#ec4899' },
-  { name: '하늘', value: '#06b6d4' },
-  { name: '노랑', value: '#eab308' },
-] as const;
-
-export interface BookmarkFolder {
-  id: number;
-  name: string;
-  type: FolderType;
-  color: string;
-  storeIds: number[];
-}
-
-export type NotificationType = 'RESERVATION_CONFIRMED' | 'RESERVATION_REMIND' | 'VACANCY';
-
-export interface Notification {
-  id: number;
-  type: NotificationType;
-  title: string;
-  message: string;
-  storeId: number;
-  storeName: string;
-  isRead: boolean;
-  createdAt: string;
-}
-
-export type CouponStatus = 'AVAILABLE' | 'USED' | 'EXPIRED';
-
-export interface Coupon {
-  id: number;
-  name: string;
-  discountRate: number;
-  status: CouponStatus;
-  expiresAt: string;
-}
-
-export interface ChatMessage {
-  id: number;
-  role: 'USER' | 'ASSISTANT';
+export interface Review {
+  id?: number;
+  reviewId?: number;
+  reservationId?: number;
+  storeId?: number;
+  rating?: number;
+  star?: number;
   content: string;
+  imageUrls?: string[];
   createdAt: string;
+  userName?: string;
+  user?: { id: number; name?: string; nickname?: string };
+  nickname?: string;
 }
 
 export interface VacancySubscription {
@@ -100,24 +87,4 @@ export interface VacancySubscription {
   storeCategory: string;
   date: string;
   time: string;
-  createdAt: string;
-}
-
-export interface StoreReview {
-  id: number;
-  storeId: number;
-  userName: string;
-  rating: number;
-  content: string;
-  createdAt: string;
-}
-
-export interface Review {
-  id: number;
-  reservationId: number;
-  storeId: number;
-  rating: number;
-  content: string;
-  imageUrls: string[];
-  createdAt: string;
 }
