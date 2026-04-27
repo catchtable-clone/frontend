@@ -21,8 +21,9 @@ import LoginRequired from '@/components/common/LoginRequired';
 import { mockVacancySubscriptions } from '@/lib/mockData';
 import { formatDate } from '@/lib/utils';
 import { useReservationsQuery, useCancelReservationMutation } from '@/lib/reservationQuery';
+import { useCreateReviewMutation, useMyReviewsQuery } from '@/lib/reviewQuery';
 import { useAuthStore } from '@/stores/authStore';
-import type { Reservation, ReservationStatus, Review, VacancySubscription } from '@/types/store';
+import type { Reservation, ReservationStatus, VacancySubscription } from '@/types/store';
 
 const STATUS_CONFIG: Record<
   string,
@@ -43,17 +44,19 @@ function ReservationCard({
   reservation,
   onCancel,
   onWriteReview,
+  isReviewed,
 }: {
   reservation: Reservation;
   onCancel: (id: number) => void;
   onWriteReview: (reservation: Reservation) => void;
+  isReviewed: boolean;
 }) {
   const router = useRouter();
   // 백엔드에서 매핑되지 않은 상태값이 오더라도 UI가 터지지 않도록 안전한 폴백(fallback)을 추가합니다.
   const { label, color, bg } = STATUS_CONFIG[reservation.status] || STATUS_CONFIG['CONFIRMED'];
   const isUpcoming = reservation.status === 'PENDING' || reservation.status === 'CONFIRMED';
   const isVisited = reservation.status === 'VISITED';
-  const hasReview = !!reservation.reviewId;
+  const hasReview = isReviewed; // 백엔드 응답이 아닌 프론트엔드 교차 검증 결과만 사용
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -157,9 +160,15 @@ export default function ReservationsPage() {
   const [reviewTarget, setReviewTarget] = useState<Reservation | null>(null);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState('');
-  const [reviewImages, setReviewImages] = useState<string[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewImages, setReviewImages] = useState<{ file: File; url: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { mutate: createReview, isPending: isReviewPending } = useCreateReviewMutation();
+
+  // 내가 작성한 리뷰 목록을 불러와서 이미 리뷰를 작성한 예약인지 확인합니다.
+  const { data: myReviews = [] } = useMyReviewsQuery(userId);
+  
+  // 백엔드 ReviewResponseDto의 reservationId를 기준으로 완벽하게 교차 검증합니다.
+  const reviewedReservationIds = new Set(myReviews.map((r) => r.reservationId));
 
   const upcoming = reservations.filter((r) => r.status === 'PENDING' || r.status === 'CONFIRMED');
   const visited = reservations.filter((r) => r.status === 'VISITED');
@@ -192,7 +201,7 @@ export default function ReservationsPage() {
   };
 
   const closeReviewModal = () => {
-    reviewImages.forEach((url) => URL.revokeObjectURL(url));
+    reviewImages.forEach((img) => URL.revokeObjectURL(img.url));
     setReviewTarget(null);
     setReviewRating(0);
     setReviewContent('');
@@ -206,15 +215,18 @@ export default function ReservationsPage() {
     const remaining = 5 - reviewImages.length;
     const selected = Array.from(files).slice(0, remaining);
 
-    const newUrls = selected.map((file) => URL.createObjectURL(file));
-    setReviewImages((prev) => [...prev, ...newUrls].slice(0, 5));
+    const newImages = selected.map((file) => ({
+      file,
+      url: URL.createObjectURL(file),
+    }));
+    setReviewImages((prev) => [...prev, ...newImages].slice(0, 5));
 
     e.target.value = '';
   };
 
   const removeImage = (index: number) => {
     setReviewImages((prev) => {
-      URL.revokeObjectURL(prev[index]);
+      URL.revokeObjectURL(prev[index].url);
       return prev.filter((_, i) => i !== index);
     });
   };
@@ -222,19 +234,33 @@ export default function ReservationsPage() {
   const submitReview = () => {
     if (!reviewTarget || reviewRating === 0) return;
 
-    const newReview: Review = {
-      id: reviews.length + 1,
-      reservationId: reviewTarget.id,
-      storeId: reviewTarget.storeId,
-      rating: reviewRating,
-      content: reviewContent,
-      imageUrls: reviewImages,
-      createdAt: new Date().toISOString(),
-    };
-
-    setReviews((prev) => [...prev, newReview]);
-    // FIXME: 실제 서비스에서는 리뷰 작성 API(useMutation)를 호출하고 onSuccess에서 쿼리를 무효화해야 합니다.
-    closeReviewModal();
+    createReview(
+      {
+        userId,
+        data: {
+          reservationId: reviewTarget.id,
+          storeId: reviewTarget.storeId,
+          rating: reviewRating,
+          content: reviewContent,
+          images: reviewImages.map((img) => img.file), // 실제 File 객체 전송
+        },
+      },
+      {
+        onSuccess: () => {
+          alert('리뷰가 성공적으로 등록되었습니다.');
+          closeReviewModal();
+        },
+        onError: (error: any) => {
+          console.error('리뷰 등록 실패:', error);
+          if (error?.response?.data?.code === 'REVIEW_ALREADY_EXISTS' || error?.response?.status === 400) {
+            alert('이미 리뷰가 등록된 예약입니다.');
+            closeReviewModal();
+          } else {
+            alert('리뷰 등록 중 오류가 발생했습니다.');
+          }
+        },
+      }
+    );
   };
 
   if (!isLoggedIn) {
@@ -300,6 +326,7 @@ export default function ReservationsPage() {
                   reservation={reservation}
                   onCancel={handleCancel}
                   onWriteReview={openReviewModal}
+                  isReviewed={reviewedReservationIds.has(reservation.id)}
                 />
               ))
             )}
@@ -478,10 +505,10 @@ export default function ReservationsPage() {
                   onChange={handleImageSelect}
                   className="hidden"
                 />
-                {reviewImages.map((src, idx) => (
+                {reviewImages.map((img, idx) => (
                   <div key={idx} className="relative h-16 w-16 flex-shrink-0">
                     <img
-                      src={src}
+                      src={img.url}
                       alt={`리뷰 이미지 ${idx + 1}`}
                       className="h-full w-full rounded-lg object-cover"
                     />
@@ -500,14 +527,14 @@ export default function ReservationsPage() {
             {/* 제출 버튼 */}
             <button
               onClick={submitReview}
-              disabled={reviewRating === 0}
+              disabled={reviewRating === 0 || isReviewPending}
               className={`w-full rounded-lg py-3 text-sm font-semibold text-white transition-colors ${
-                reviewRating > 0
+                reviewRating > 0 && !isReviewPending
                   ? 'bg-orange-500 hover:bg-orange-600'
                   : 'bg-gray-300'
               }`}
             >
-              리뷰 등록
+              {isReviewPending ? '등록 중...' : '리뷰 등록'}
             </button>
         </BottomSheet>
       )}

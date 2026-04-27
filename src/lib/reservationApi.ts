@@ -65,7 +65,6 @@ export const getReservations = async (userId: number): Promise<Reservation[]> =>
     time: item.time || item.reservationTime || item.remainTime || item.remain?.time || item.remain?.remainTime || '시간 미상',
     guestCount: item.guestCount || item.member || item.headCount || item.count || 0,
     status: mapStatus(item.status),
-    reviewId: item.reviewId,
   })) as Reservation[];
 };
 
