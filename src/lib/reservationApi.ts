@@ -48,10 +48,11 @@ export const getReservations = async (userId: number): Promise<Reservation[]> =>
   // 백엔드의 다양한 상태값을 프론트엔드 규격에 맞게 안전하게 매핑합니다.
   const mapStatus = (status: string | undefined): Reservation['status'] => {
     const s = status?.toUpperCase();
-    if (s === 'RESERVED') return 'CONFIRMED';
-    if (s === 'CANCELED' || s === 'CANCEL') return 'CANCELLED'; // 백엔드 CANCELED(L 1개) 스펠링 대응
-    if (s === 'VISITED' || s === 'NOSHOW' || s === 'CONFIRMED' || s === 'CANCELLED') return s as Reservation['status'];
-    return 'CONFIRMED'; // 알 수 없는 상태일 경우 기본값
+    // 백엔드의 ReservationStatus Enum과 1:1 매핑
+    if (s === 'PENDING' || s === 'CONFIRMED' || s === 'CANCELED' || s === 'NOSHOW' || s === 'VISITED') {
+      return s as Reservation['status'];
+    }
+    return 'PENDING'; // 알 수 없는 상태일 경우 기본값
   };
 
   // 백엔드의 필드명을 프론트엔드 Reservation 타입에 맞게 매핑(정규화)합니다.

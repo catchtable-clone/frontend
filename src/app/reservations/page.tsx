@@ -25,16 +25,17 @@ import { useAuthStore } from '@/stores/authStore';
 import type { Reservation, ReservationStatus, Review, VacancySubscription } from '@/types/store';
 
 const STATUS_CONFIG: Record<
-  ReservationStatus,
+  string,
   { label: string; color: string; bg: string }
 > = {
+  PENDING: { label: '예약 대기', color: 'text-blue-600', bg: 'bg-blue-50' },
   CONFIRMED: {
     label: '예약 확정',
     color: 'text-orange-600',
     bg: 'bg-orange-50',
   },
   VISITED: { label: '방문 완료', color: 'text-green-600', bg: 'bg-green-50' },
-  CANCELLED: { label: '취소됨', color: 'text-gray-500', bg: 'bg-gray-100' },
+  CANCELED: { label: '취소됨', color: 'text-gray-500', bg: 'bg-gray-100' },
   NOSHOW: { label: '노쇼', color: 'text-red-600', bg: 'bg-red-50' },
 };
 
@@ -50,7 +51,7 @@ function ReservationCard({
   const router = useRouter();
   // 백엔드에서 매핑되지 않은 상태값이 오더라도 UI가 터지지 않도록 안전한 폴백(fallback)을 추가합니다.
   const { label, color, bg } = STATUS_CONFIG[reservation.status] || STATUS_CONFIG['CONFIRMED'];
-  const isUpcoming = reservation.status === 'CONFIRMED';
+  const isUpcoming = reservation.status === 'PENDING' || reservation.status === 'CONFIRMED';
   const isVisited = reservation.status === 'VISITED';
   const hasReview = !!reservation.reviewId;
 
@@ -142,7 +143,7 @@ export default function ReservationsPage() {
   // FIXME: 백엔드 로그인 API 연동 전까지 임시로 항상 로그인된 상태로 처리합니다.
   const isLoggedIn = true;
 
-  const [tab, setTab] = useState<'upcoming' | 'past' | 'vacancy'>('upcoming');
+  const [tab, setTab] = useState<'upcoming' | 'visited' | 'canceled' | 'vacancy'>('upcoming');
 
   // FIXME: 실제 유저 연동 시 AuthStore에서 가져온 userId로 교체합니다.
   const userId = 1;
@@ -160,9 +161,10 @@ export default function ReservationsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const upcoming = reservations.filter((r) => r.status === 'CONFIRMED');
-  const past = reservations.filter((r) => r.status !== 'CONFIRMED');
-  const currentList = tab === 'upcoming' ? upcoming : past;
+  const upcoming = reservations.filter((r) => r.status === 'PENDING' || r.status === 'CONFIRMED');
+  const visited = reservations.filter((r) => r.status === 'VISITED');
+  const canceled = reservations.filter((r) => r.status === 'CANCELED' || r.status === 'NOSHOW');
+  const currentList = tab === 'upcoming' ? upcoming : tab === 'visited' ? visited : canceled;
 
   const handleCancel = (id: number) => {
     setCancelTarget(id);
@@ -255,12 +257,13 @@ export default function ReservationsPage() {
         {/* 탭 */}
         <Tabs
           items={[
-            { key: 'upcoming', label: `예정된 예약 (${upcoming.length})` },
-            { key: 'past', label: `지난 예약 (${past.length})` },
+            { key: 'upcoming', label: `방문 예정 (${upcoming.length})` },
+            { key: 'visited', label: `방문 완료 (${visited.length})` },
+            { key: 'canceled', label: `취소/노쇼 (${canceled.length})` },
             { key: 'vacancy', label: `빈자리 알림 (${vacancies.length})` },
           ]}
           activeKey={tab}
-          onChange={(key) => setTab(key as 'upcoming' | 'past' | 'vacancy')}
+          onChange={(key) => setTab(key as 'upcoming' | 'visited' | 'canceled' | 'vacancy')}
         />
 
         {/* 예약 목록 */}
@@ -276,8 +279,10 @@ export default function ReservationsPage() {
                 <CalendarDays size={40} className="text-gray-300" />
                 <p className="text-sm text-gray-400">
                   {tab === 'upcoming'
-                    ? '예정된 예약이 없습니다'
-                    : '지난 예약 이력이 없습니다'}
+                    ? '방문 예정인 예약이 없습니다'
+                    : tab === 'visited'
+                      ? '방문 완료된 내역이 없습니다'
+                      : '취소/노쇼된 예약이 없습니다'}
                 </p>
                 {tab === 'upcoming' && (
                   <button
