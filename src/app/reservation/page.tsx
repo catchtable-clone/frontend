@@ -20,7 +20,7 @@ import CenteredModal from '@/components/common/CenteredModal';
 import BottomSheet from '@/components/common/BottomSheet';
 import { mockCoupons } from '@/lib/mockData';
 import { formatDate } from '@/lib/utils';
-import { useCreateReservationMutation } from '@/lib/reservationQuery';
+import { useCreateReservationMutation, useUpdateReservationMutation } from '@/lib/reservationQuery';
 import { useStoreDetailQuery } from '@/lib/storeQuery';
 import type { Coupon } from '@/types/store';
 
@@ -40,6 +40,7 @@ function ReservationContent() {
   const availableCoupons = mockCoupons.filter((c) => c.status === 'AVAILABLE');
 
   const { mutate: createReservation, isPending } = useCreateReservationMutation();
+  const { mutate: updateReservation, isPending: isUpdatePending } = useUpdateReservationMutation();
 
   const [guestCount, setGuestCount] = useState(2);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
@@ -80,19 +81,33 @@ function ReservationContent() {
   }
 
   const handleConfirm = () => {
-    createReservation(
-      { storeId, date, time, guestCount, remainId },
-      {
-        onSuccess: () => {
-          // API 통신 성공 시 완료 모달을 띄웁니다.
-          setShowSuccess(true);
+    if (isChange && changeFrom) {
+      updateReservation(
+        {
+          reservationId: Number(changeFrom),
+          userId: 1, // FIXME: 실제 로그인된 유저 ID (추후 AuthStore에서 연동)
+          data: { remainId, guestCount }
         },
-        onError: (error) => {
-          console.error('예약 실패:', error);
-          alert('예약 요청 중 오류가 발생했습니다.');
-        },
-      }
-    );
+        {
+          onSuccess: () => setShowSuccess(true),
+          onError: (error) => {
+            console.error('예약 변경 실패:', error);
+            alert('예약 변경 중 오류가 발생했습니다.');
+          },
+        }
+      );
+    } else {
+      createReservation(
+        { storeId, date, time, guestCount, remainId },
+        {
+          onSuccess: () => setShowSuccess(true),
+          onError: (error) => {
+            console.error('예약 실패:', error);
+            alert('예약 요청 중 오류가 발생했습니다.');
+          },
+        }
+      );
+    }
   };
 
   return (
@@ -190,12 +205,12 @@ function ReservationContent() {
       <div className="sticky bottom-0 border-t border-gray-200 bg-white px-4 py-3">
         <button
           onClick={handleConfirm}
-          disabled={isPending}
+          disabled={isPending || isUpdatePending}
           className={`w-full rounded-lg py-3 text-sm font-semibold text-white transition-colors ${
-            isPending ? 'cursor-not-allowed bg-gray-400' : 'bg-orange-500 hover:bg-orange-600'
+            (isPending || isUpdatePending) ? 'cursor-not-allowed bg-gray-400' : 'bg-orange-500 hover:bg-orange-600'
           }`}
         >
-          {isPending ? '예약 처리 중...' : isChange ? '예약 변경하기' : '예약 확정하기'}
+          {(isPending || isUpdatePending) ? '예약 처리 중...' : isChange ? '예약 변경하기' : '예약 확정하기'}
         </button>
       </div>
 

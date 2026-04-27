@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, Fragment, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Star, Clock, MapPin, Heart, Check, Plus } from 'lucide-react';
 import { DayPicker } from 'react-day-picker';
 import { ko } from 'react-day-picker/locale';
@@ -29,6 +29,8 @@ function getNextDays(count: number) {
 export default function StoreDetail() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const changeFrom = searchParams?.get('changeFrom');
   
   const id = params?.id || '';
   
@@ -117,9 +119,9 @@ export default function StoreDetail() {
   const handleConfirmReservation = () => {
     if (!selectedTime || !selectedRemainId) return;
     setShowTimeModal(false);
-    router.push(
-      `/reservation?storeId=${store?.id || id}&date=${formattedSelectedDate}&time=${selectedTime}&remainId=${selectedRemainId}`,
-    );
+    
+    const url = `/reservation?storeId=${store?.id || id}&date=${formattedSelectedDate}&time=${selectedTime}&remainId=${selectedRemainId}`;
+    router.push(changeFrom ? `${url}&changeFrom=${changeFrom}` : url);
   };
 
   return (

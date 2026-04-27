@@ -9,7 +9,7 @@ export const useStoreDetailQuery = (storeId: string) => {
   return useQuery({
     queryKey: ['storeDetail', storeId],
     queryFn: () => getStoreDetail(storeId),
-    enabled: !!storeId,
+    enabled: !!storeId && storeId !== 'undefined',
     staleTime: 0, // 뒤로가기 시 발생하는 Next.js 라우터 캐시 데드락 방지
   });
 };
@@ -21,7 +21,7 @@ export const useStoreTimesQuery = (storeId: string, date: string) => {
   return useQuery({
     queryKey: ['storeTimes', storeId, date],
     queryFn: () => getStoreTimes(storeId, date),
-    enabled: !!storeId && !!date,
+    enabled: !!storeId && storeId !== 'undefined' && !!date,
   });
 };
 
@@ -32,7 +32,7 @@ export const useStoreReviewsQuery = (storeId: string) => {
   return useQuery({
     queryKey: ['storeReviews', storeId],
     queryFn: () => getStoreReviews(storeId),
-    enabled: !!storeId,
+    enabled: !!storeId && storeId !== 'undefined',
   });
 };
 
@@ -43,6 +43,6 @@ export const useStoreMenusQuery = (storeId: string) => {
   return useQuery({
     queryKey: ['storeMenus', storeId],
     queryFn: () => getStoreMenus(storeId),
-    enabled: !!storeId,
+    enabled: !!storeId && storeId !== 'undefined',
   });
 };

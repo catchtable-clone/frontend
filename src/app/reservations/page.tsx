@@ -18,8 +18,9 @@ import StarRating from '@/components/common/StarRating';
 import BottomSheet from '@/components/common/BottomSheet';
 import Tabs from '@/components/common/Tabs';
 import LoginRequired from '@/components/common/LoginRequired';
-import { mockReservations, mockVacancySubscriptions } from '@/lib/mockData';
+import { mockVacancySubscriptions } from '@/lib/mockData';
 import { formatDate } from '@/lib/utils';
+import { useReservationsQuery, useCancelReservationMutation } from '@/lib/reservationQuery';
 import { useAuthStore } from '@/stores/authStore';
 import type { Reservation, ReservationStatus, Review, VacancySubscription } from '@/types/store';
 
@@ -47,7 +48,8 @@ function ReservationCard({
   onWriteReview: (reservation: Reservation) => void;
 }) {
   const router = useRouter();
-  const { label, color, bg } = STATUS_CONFIG[reservation.status];
+  // 백엔드에서 매핑되지 않은 상태값이 오더라도 UI가 터지지 않도록 안전한 폴백(fallback)을 추가합니다.
+  const { label, color, bg } = STATUS_CONFIG[reservation.status] || STATUS_CONFIG['CONFIRMED'];
   const isUpcoming = reservation.status === 'CONFIRMED';
   const isVisited = reservation.status === 'VISITED';
   const hasReview = !!reservation.reviewId;
@@ -96,7 +98,7 @@ function ReservationCard({
           <button
             onClick={() =>
               router.push(
-                `/reservation?storeId=${reservation.storeId}&date=${reservation.date}&time=${reservation.time}&changeFrom=${reservation.id}`,
+              `/stores/${reservation.storeId}?changeFrom=${reservation.id}`
               )
             }
             className="flex-1 rounded-lg border border-blue-200 py-2 text-sm font-medium text-blue-500 hover:bg-blue-50"
@@ -137,11 +139,15 @@ function ReservationCard({
 export default function ReservationsPage() {
   const router = useRouter();
   const { accessToken } = useAuthStore();
-  const isLoggedIn = !!accessToken;
+  // FIXME: 백엔드 로그인 API 연동 전까지 임시로 항상 로그인된 상태로 처리합니다.
+  const isLoggedIn = true;
 
   const [tab, setTab] = useState<'upcoming' | 'past' | 'vacancy'>('upcoming');
-  const [reservations, setReservations] =
-    useState<Reservation[]>(mockReservations);
+
+  // FIXME: 실제 유저 연동 시 AuthStore에서 가져온 userId로 교체합니다.
+  const userId = 1;
+  const { data: reservations = [], isLoading } = useReservationsQuery(userId);
+  const { mutate: cancelReservation } = useCancelReservationMutation();
   const [vacancies, setVacancies] = useState<VacancySubscription[]>(mockVacancySubscriptions);
   const [cancelTarget, setCancelTarget] = useState<number | null>(null);
   const [vacancyCancelTarget, setVacancyCancelTarget] = useState<number | null>(null);
@@ -164,12 +170,16 @@ export default function ReservationsPage() {
 
   const confirmCancel = () => {
     if (cancelTarget === null) return;
-    setReservations((prev) =>
-      prev.map((r) =>
-        r.id === cancelTarget ? { ...r, status: 'CANCELLED' as const } : r,
-      ),
+    cancelReservation(
+      { reservationId: cancelTarget, userId },
+      {
+        onSuccess: () => setCancelTarget(null),
+        onError: (error) => {
+          console.error('예약 취소 실패:', error);
+          alert('예약 취소 중 오류가 발생했습니다.');
+        },
+      }
     );
-    setCancelTarget(null);
   };
 
   const openReviewModal = (reservation: Reservation) => {
@@ -221,11 +231,7 @@ export default function ReservationsPage() {
     };
 
     setReviews((prev) => [...prev, newReview]);
-    setReservations((prev) =>
-      prev.map((r) =>
-        r.id === reviewTarget.id ? { ...r, reviewId: newReview.id } : r,
-      ),
-    );
+    // FIXME: 실제 서비스에서는 리뷰 작성 API(useMutation)를 호출하고 onSuccess에서 쿼리를 무효화해야 합니다.
     closeReviewModal();
   };
 
@@ -260,7 +266,12 @@ export default function ReservationsPage() {
         {/* 예약 목록 */}
         {tab !== 'vacancy' && (
           <div className="flex flex-col gap-3 px-4 py-4">
-            {currentList.length === 0 ? (
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent"></div>
+                <p className="mt-4 text-sm text-gray-400">예약 내역을 불러오는 중...</p>
+              </div>
+            ) : currentList.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-16">
                 <CalendarDays size={40} className="text-gray-300" />
                 <p className="text-sm text-gray-400">
