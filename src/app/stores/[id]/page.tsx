@@ -15,6 +15,7 @@ import { formatDateParts, formatDateDot } from '@/lib/utils';
 import FolderFormModal from '@/components/common/FolderFormModal';
 import type { BookmarkFolder, StoreRemain } from '@/types/store';
 import { useStoreDetailQuery, useStoreMenusQuery, useStoreReviewsQuery, useStoreTimesQuery } from '@/lib/storeQuery';
+import { useCreateVacancyMutation } from '@/lib/vacancyQuery';
 function getNextDays(count: number) {
   const days = [];
   const today = new Date();
@@ -39,9 +40,11 @@ export default function StoreDetail() {
   const { data: store, isLoading, isError, error } = useStoreDetailQuery(id);
   const { data: menus = [], isLoading: isMenuLoading } = useStoreMenusQuery(id);
   const { data: reviews = [], isLoading: isReviewLoading } = useStoreReviewsQuery(id);
+  const { mutate: createVacancy, isPending: isVacancyPending } = useCreateVacancyMutation();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedRemainId, setSelectedRemainId] = useState<number | null>(null);
+  const [selectedTimeIsFull, setSelectedTimeIsFull] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState(false);
   const [showFolderSheet, setShowFolderSheet] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
@@ -113,6 +116,7 @@ export default function StoreDetail() {
   const handleReserveClick = () => {
     setSelectedTime(null);
     setSelectedRemainId(null);
+    setSelectedTimeIsFull(false);
     setShowTimeModal(true);
   };
 
@@ -358,23 +362,14 @@ export default function StoreDetail() {
           >
             현재 휴업중입니다
           </button>
-        ) : isSelectedFullyBooked ? (
-          <button
-            onClick={() =>
-              alert(
-                `${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일 빈자리 알림이 등록되었습니다.`,
-              )
-            }
-            className="w-full rounded-lg bg-blue-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
-          >
-            빈자리 알림 등록
-          </button>
         ) : (
           <button
             onClick={handleReserveClick}
-            className="w-full rounded-lg bg-orange-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+            className={`w-full rounded-lg py-3 text-sm font-semibold text-white transition-colors ${
+              isSelectedFullyBooked ? 'bg-blue-500 hover:bg-blue-600' : 'bg-orange-500 hover:bg-orange-600'
+            }`}
           >
-            예약하기
+            {isSelectedFullyBooked ? '시간대 선택하고 빈자리 알림 받기' : '예약하기'}
           </button>
         )}
       </div>
@@ -391,6 +386,7 @@ export default function StoreDetail() {
                 if (date) {
                   setSelectedDate(date);
                   setSelectedTime(null);
+                  setSelectedTimeIsFull(false);
                 }
               }}
               disabled={{ before: new Date() }}
@@ -434,17 +430,17 @@ export default function StoreDetail() {
                     <button
                       key={t.id || `time-${index}`}
                       onClick={() => {
-                        if (!isFull && t.id) {
+                        if (t.id) {
                           setSelectedTime(displayTime);
                           setSelectedRemainId(t.id);
+                          setSelectedTimeIsFull(isFull);
                         }
                       }}
-                      disabled={isFull}
                       className={`rounded-lg border py-2 text-sm font-medium ${
                         selectedTime === displayTime
-                          ? 'border-orange-500 bg-orange-50 text-orange-500'
+                          ? selectedTimeIsFull ? 'border-blue-500 bg-blue-50 text-blue-500' : 'border-orange-500 bg-orange-50 text-orange-500'
                           : isFull
-                          ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                          ? 'border-gray-100 bg-gray-50 text-gray-400'
                           : 'border-gray-200 text-gray-700 hover:border-orange-500 hover:text-orange-500'
                       }`}
                     >
@@ -459,15 +455,32 @@ export default function StoreDetail() {
             </div>
 
             <button
-              onClick={handleConfirmReservation}
-              disabled={!selectedTime}
+              onClick={() => {
+                if (selectedTimeIsFull) {
+                  createVacancy(
+                    { userId: 1, remainId: selectedRemainId! }, // FIXME: Auth 연동 시 교체
+                    {
+                      onSuccess: () => {
+                        alert('빈자리 알림이 등록되었습니다.');
+                        setShowTimeModal(false);
+                      },
+                      onError: (error: any) => {
+                        alert(error?.response?.data?.message || '빈자리 알림 등록 중 오류가 발생했습니다.');
+                      }
+                    }
+                  );
+                } else {
+                  handleConfirmReservation();
+                }
+              }}
+              disabled={!selectedTime || isVacancyPending}
               className={`w-full rounded-lg py-3 text-sm font-semibold text-white transition-colors ${
                 selectedTime
-                  ? 'bg-orange-500 hover:bg-orange-600'
+                  ? selectedTimeIsFull ? 'bg-blue-500 hover:bg-blue-600' : 'bg-orange-500 hover:bg-orange-600'
                   : 'bg-gray-300'
               }`}
             >
-              예약하기
+              {isVacancyPending ? '처리 중...' : selectedTimeIsFull ? '빈자리 알림 등록' : '예약하기'}
             </button>
         </BottomSheet>
       )}

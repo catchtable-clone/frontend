@@ -18,10 +18,10 @@ import StarRating from '@/components/common/StarRating';
 import BottomSheet from '@/components/common/BottomSheet';
 import Tabs from '@/components/common/Tabs';
 import LoginRequired from '@/components/common/LoginRequired';
-import { mockVacancySubscriptions } from '@/lib/mockData';
 import { formatDate } from '@/lib/utils';
 import { useReservationsQuery, useCancelReservationMutation } from '@/lib/reservationQuery';
 import { useCreateReviewMutation, useMyReviewsQuery } from '@/lib/reviewQuery';
+import { useMyVacanciesQuery, useCancelVacancyMutation } from '@/lib/vacancyQuery';
 import { useAuthStore } from '@/stores/authStore';
 import type { Reservation, ReservationStatus, VacancySubscription } from '@/types/store';
 
@@ -152,7 +152,8 @@ export default function ReservationsPage() {
   const userId = 1;
   const { data: reservations = [], isLoading } = useReservationsQuery(userId);
   const { mutate: cancelReservation } = useCancelReservationMutation();
-  const [vacancies, setVacancies] = useState<VacancySubscription[]>(mockVacancySubscriptions);
+  const { data: vacancies = [], isLoading: isVacancyLoading } = useMyVacanciesQuery(userId);
+  const { mutate: cancelVacancy } = useCancelVacancyMutation();
   const [cancelTarget, setCancelTarget] = useState<number | null>(null);
   const [vacancyCancelTarget, setVacancyCancelTarget] = useState<number | null>(null);
 
@@ -336,7 +337,12 @@ export default function ReservationsPage() {
         {/* 빈자리 알림 */}
         {tab === 'vacancy' && (
           <div className="flex flex-col gap-3 px-4 py-4">
-            {vacancies.length === 0 ? (
+            {isVacancyLoading ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent"></div>
+                <p className="mt-4 text-sm text-gray-400">알림 내역을 불러오는 중...</p>
+              </div>
+            ) : vacancies.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-16">
                 <CalendarDays size={40} className="text-gray-300" />
                 <p className="text-sm text-gray-400">
@@ -356,16 +362,16 @@ export default function ReservationsPage() {
                 </p>
                 {vacancies.map((sub) => (
                   <div
-                    key={sub.id}
+                    key={sub.vacancyId}
                     className="rounded-xl border border-gray-200 bg-white p-4"
                   >
                     <div className="flex items-start justify-between">
                       <button
-                        onClick={() => router.push(`/stores/${sub.storeId}`)}
+                        onClick={() => sub.storeId && router.push(`/stores/${sub.storeId}`)}
                         className="text-left"
                       >
                         <span className="text-xs text-gray-400">
-                          {sub.storeCategory}
+                          {sub.storeCategory || '식당'}
                         </span>
                         <h3 className="text-base font-semibold text-gray-900">
                           {sub.storeName}
@@ -378,22 +384,22 @@ export default function ReservationsPage() {
                     <div className="mt-3 flex flex-col gap-1.5">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <CalendarDays size={14} className="text-gray-400" />
-                        <span>{formatDate(sub.date)}</span>
+                        <span>{formatDate(sub.remainDate)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Clock size={14} className="text-gray-400" />
-                        <span>{sub.time}</span>
+                        <span>{sub.remainTime}</span>
                       </div>
                     </div>
                     <div className="mt-4 flex gap-2">
                       <button
-                        onClick={() => router.push(`/stores/${sub.storeId}`)}
+                        onClick={() => sub.storeId && router.push(`/stores/${sub.storeId}`)}
                         className="flex-1 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                       >
                         매장 보기
                       </button>
                       <button
-                        onClick={() => setVacancyCancelTarget(sub.id)}
+                        onClick={() => setVacancyCancelTarget(sub.vacancyId)}
                         className="flex-1 rounded-lg border border-red-200 py-2 text-sm font-medium text-red-500 hover:bg-red-50"
                       >
                         구독 취소
@@ -427,8 +433,18 @@ export default function ReservationsPage() {
           message="취소하면 해당 시간대의 빈자리 알림을 받을 수 없습니다."
           confirmLabel="취소하기"
           onConfirm={() => {
-            setVacancies((prev) => prev.filter((s) => s.id !== vacancyCancelTarget));
-            setVacancyCancelTarget(null);
+            if (vacancyCancelTarget) {
+              cancelVacancy(
+                { vacancyId: vacancyCancelTarget, userId },
+                {
+                  onSuccess: () => setVacancyCancelTarget(null),
+                  onError: (error: any) => {
+                    alert(error?.response?.data?.message || '알림 취소 중 오류가 발생했습니다.');
+                    setVacancyCancelTarget(null);
+                  }
+                }
+              );
+            }
           }}
           onCancel={() => setVacancyCancelTarget(null)}
         />
