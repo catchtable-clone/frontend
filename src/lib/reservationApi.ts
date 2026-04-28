@@ -1,5 +1,6 @@
 import api from '@/lib/axios';
 import type { Reservation } from '@/types/store';
+import { toCategoryLabel } from '@/lib/storeEnum';
 
 export interface ReservationRequest {
   storeId: number;
@@ -60,7 +61,7 @@ export const getReservations = async (userId: number): Promise<Reservation[]> =>
     id: item.id || item.reservationId,
     storeId: item.storeId ?? item.store_id ?? item.store?.id ?? item.restaurantId ?? 1, // 백엔드 응답 누락 시 기본값 1 할당 방어코드
     storeName: item.storeName || item.name || item.store?.name || item.store?.storeName || '알 수 없는 매장',
-    storeCategory: item.storeCategory || item.category || item.store?.category || '분류 없음',
+    storeCategory: toCategoryLabel(item.storeCategory || item.category || item.store?.category) || '분류 없음',
     date: item.date || item.reservationDate || item.remainDate || item.remain?.date || item.remain?.remainDate || '날짜 미상',
     time: item.time || item.reservationTime || item.remainTime || item.remain?.time || item.remain?.remainTime || '시간 미상',
     guestCount: item.guestCount || item.member || item.headCount || item.count || 0,

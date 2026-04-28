@@ -2,6 +2,15 @@ import api from '@/lib/axios';
 import { StoreDetail, StoreSummary, Menu, Review, StoreRemain } from '@/types/store';
 
 /**
+ * 백엔드 ApiResponse 래핑(`{ status, message, data }`) 안의 실제 데이터를 추출.
+ * 다양한 필드명(data/result) 또는 raw 응답 모두 지원.
+ */
+const unwrap = <T>(response: { data: any }, fallback: T): T => {
+  const body = response.data;
+  return (body?.data ?? body?.result ?? body ?? fallback) as T;
+};
+
+/**
  * 매장 목록 통합 조회 (백엔드 GET /stores)
  * 모든 파라미터 옵셔널 — 미지정 시 전체 매장 반환
  */
@@ -18,7 +27,7 @@ export const getStores = async (params: StoreListParams = {}): Promise<StoreSumm
     Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
   );
   const response = await api.get('/stores', { params: filteredParams });
-  return (response.data.data || response.data.result || response.data || []) as StoreSummary[];
+  return unwrap<StoreSummary[]>(response, []);
 };
 
 /**
@@ -26,7 +35,7 @@ export const getStores = async (params: StoreListParams = {}): Promise<StoreSumm
  */
 export const getPopularStores = async (limit = 10): Promise<StoreSummary[]> => {
   const response = await api.get('/stores/popular', { params: { limit } });
-  return (response.data.data || response.data.result || response.data || []) as StoreSummary[];
+  return unwrap<StoreSummary[]>(response, []);
 };
 
 /**
@@ -41,7 +50,7 @@ export const getNearbyStores = async (
   const response = await api.get('/stores/nearby', {
     params: { latitude, longitude, page, size },
   });
-  return (response.data.data || response.data.result || response.data || []) as StoreSummary[];
+  return unwrap<StoreSummary[]>(response, []);
 };
 
 /**
@@ -51,7 +60,7 @@ export const getNearbyStores = async (
  */
 export const getStoreDetail = async (storeId: string): Promise<StoreDetail> => {
   const response = await api.get(`/stores/${storeId}`);
-  return (response.data.data || response.data.result || response.data) as StoreDetail;
+  return unwrap<StoreDetail>(response, {} as StoreDetail);
 };
 
 /**
@@ -59,9 +68,8 @@ export const getStoreDetail = async (storeId: string): Promise<StoreDetail> => {
  * @param storeId - 조회할 매장의 ID
  */
 export const getStoreMenus = async (storeId: string): Promise<Menu[]> => {
-  // 백엔드 API 설계에 맞춰 정확한 주소로 변경합니다.
   const response = await api.get(`/stores/${storeId}/menu`);
-  return (response.data.data || response.data.result || response.data || []) as Menu[];
+  return unwrap<Menu[]>(response, []);
 };
 
 /**
@@ -70,7 +78,7 @@ export const getStoreMenus = async (storeId: string): Promise<Menu[]> => {
  */
 export const getStoreReviews = async (storeId: string): Promise<Review[]> => {
   const response = await api.get(`/reviews/store/${storeId}`);
-  return (response.data.data || response.data.result || response.data || []) as Review[];
+  return unwrap<Review[]>(response, []);
 };
 
 /**
@@ -80,5 +88,5 @@ export const getStoreReviews = async (storeId: string): Promise<Review[]> => {
  */
 export const getStoreTimes = async (storeId: string, date: string): Promise<StoreRemain[]> => {
   const response = await api.get(`/remains`, { params: { storeId, date } });
-  return (response.data.data || response.data.result || response.data || []) as StoreRemain[];
+  return unwrap<StoreRemain[]>(response, []);
 };

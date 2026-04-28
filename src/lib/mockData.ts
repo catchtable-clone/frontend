@@ -1,4 +1,4 @@
-import { Store, Menu, Category, Reservation, Review, Coupon, BookmarkFolder, Notification, VacancySubscription, StoreReview } from '@/types/store';
+import { Store, Category, Reservation, Review, Coupon, BookmarkFolder, Notification, VacancySubscription, StoreReview } from '@/types/store';
 
 export const mockCategories: Category[] = [
   { id: 1, name: '한식', icon: '🍚' },
@@ -102,37 +102,6 @@ export const mockFullyBookedDays: Record<number, number[]> = {
   4: [1, 4],
   5: [3, 5],
   6: [0, 3],
-};
-
-export const mockMenus: Record<number, Menu[]> = {
-  1: [
-    { menuId: 1, menuName: '오마카세 코스', price: 150000, description: '셰프 추천 12가지 코스', menuImage: '' },
-    { menuId: 2, menuName: '스페셜 코스', price: 200000, description: '프리미엄 재료 15가지 코스', menuImage: '' },
-    { menuId: 3, menuName: '런치 코스', price: 80000, description: '점심 한정 8가지 코스', menuImage: '' },
-  ],
-  2: [
-    { menuId: 4, menuName: '한우 코스', price: 120000, description: '한우 모둠 + 사이드', menuImage: '' },
-    { menuId: 5, menuName: '제철 코스', price: 90000, description: '계절 재료 한상', menuImage: '' },
-  ],
-  3: [
-    { menuId: 6, menuName: '마르게리타', price: 18000, description: '토마토, 모짜렐라, 바질', menuImage: '' },
-    { menuId: 7, menuName: '페퍼로니', price: 20000, description: '매콤한 페퍼로니', menuImage: '' },
-    { menuId: 8, menuName: '트러플 피자', price: 28000, description: '트러플 오일 + 버섯', menuImage: '' },
-  ],
-  4: [
-    { menuId: 9, menuName: '돈코츠 라멘', price: 12000, description: '진한 돼지뼈 육수', menuImage: '' },
-    { menuId: 10, menuName: '쇼유 라멘', price: 11000, description: '간장 베이스 담백한 맛', menuImage: '' },
-  ],
-  5: [
-    { menuId: 11, menuName: '짜장면', price: 9000, description: '수제 춘장 짜장', menuImage: '' },
-    { menuId: 12, menuName: '짬뽕', price: 10000, description: '얼큰한 해물 짬뽕', menuImage: '' },
-    { menuId: 13, menuName: '탕수육', price: 22000, description: '바삭한 찹쌀 탕수육', menuImage: '' },
-  ],
-  6: [
-    { menuId: 14, menuName: '아메리카노', price: 5000, description: '에스프레소 + 물', menuImage: '' },
-    { menuId: 15, menuName: '카페 라떼', price: 5500, description: '에스프레소 + 우유', menuImage: '' },
-    { menuId: 16, menuName: '크루아상', price: 4500, description: '버터 크루아상', menuImage: '' },
-  ],
 };
 
 export const mockReservations: Reservation[] = [

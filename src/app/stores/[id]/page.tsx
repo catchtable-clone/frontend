@@ -182,16 +182,16 @@ export default function StoreDetail() {
                 ({store.reviewCount ?? 0})
               </span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <MapPin size={14} />
-              <span>{store.address}</span>
+            <div className="flex items-start gap-2 text-sm text-gray-600">
+              <MapPin size={14} className="mt-0.5 flex-shrink-0" />
+              <span className="flex-1 break-keep">{store.address}</span>
               <button
                 onClick={() =>
                   router.push(
                     `/map?lat=${store.latitude}&lng=${store.longitude}&storeId=${store.storeId}`,
                   )
                 }
-                className="ml-1 text-xs text-orange-500 hover:underline"
+                className="flex-shrink-0 whitespace-nowrap text-xs text-orange-500 hover:underline"
               >
                 지도에서 보기
               </button>
