@@ -2,18 +2,45 @@ import api from '@/lib/axios';
 import { StoreDetail, StoreSummary, Menu, Review, StoreRemain } from '@/types/store';
 
 /**
- * 매장명으로 매장 검색 (백엔드 GET /stores?name=)
+ * 매장 목록 통합 조회 (백엔드 GET /stores)
+ * 모든 파라미터 옵셔널 — 미지정 시 전체 매장 반환
  */
-export const searchStores = async (name: string): Promise<StoreSummary[]> => {
-  const response = await api.get('/stores', { params: { name } });
+export interface StoreListParams {
+  name?: string;
+  category?: string;
+  district?: string;
+  page?: number;
+  size?: number;
+}
+
+export const getStores = async (params: StoreListParams = {}): Promise<StoreSummary[]> => {
+  const filteredParams = Object.fromEntries(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+  );
+  const response = await api.get('/stores', { params: filteredParams });
   return (response.data.data || response.data.result || response.data || []) as StoreSummary[];
 };
 
 /**
- * 지역(구) 기준 매장 조회 (백엔드 GET /stores/district?district=)
+ * 인기 매장 조회 (평균 평점 내림차순)
  */
-export const getStoresByDistrict = async (district: string): Promise<StoreSummary[]> => {
-  const response = await api.get('/stores/district', { params: { district } });
+export const getPopularStores = async (limit = 10): Promise<StoreSummary[]> => {
+  const response = await api.get('/stores/popular', { params: { limit } });
+  return (response.data.data || response.data.result || response.data || []) as StoreSummary[];
+};
+
+/**
+ * 내 주변 매장 조회 (좌표 거리 정렬 + 페이지네이션)
+ */
+export const getNearbyStores = async (
+  latitude: number,
+  longitude: number,
+  page = 0,
+  size = 10,
+): Promise<StoreSummary[]> => {
+  const response = await api.get('/stores/nearby', {
+    params: { latitude, longitude, page, size },
+  });
   return (response.data.data || response.data.result || response.data || []) as StoreSummary[];
 };
 

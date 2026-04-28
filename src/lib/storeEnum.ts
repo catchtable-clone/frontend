@@ -81,3 +81,17 @@ export const toDistrictLabel = (districtEnum?: string): string =>
 
 export const toDistrictEnum = (label?: string): string | undefined =>
   label ? DISTRICT_ENUMS[label] : undefined;
+
+/**
+ * UI에서 사용할 카테고리·지역 배열 (탭, 필터 드롭다운 등)
+ */
+export const STORE_CATEGORIES = Object.entries(CATEGORY_LABELS).map(([enumValue, label]) => ({
+  enumValue,
+  label,
+  icon: CATEGORY_ICONS[enumValue],
+}));
+
+export const STORE_DISTRICTS = Object.entries(DISTRICT_LABELS).map(([enumValue, label]) => ({
+  enumValue,
+  label,
+}));

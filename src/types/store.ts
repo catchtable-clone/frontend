@@ -12,6 +12,7 @@ export interface StoreDetail {
   longitude: number;
   openTime: string;
   closeTime: string;
+  averageStar: number;
   reviewCount?: number;
   bookmarkCount?: number;
   remainDates?: RemainDate[];
@@ -74,6 +75,8 @@ export interface StoreSummary {
   district?: string;
   latitude: number;
   longitude: number;
+  averageStar: number;
+  reviewCount: number;
 }
 
 export type ReservationStatus = 'CONFIRMED' | 'VISITED' | 'CANCELLED' | 'NOSHOW';

@@ -1,33 +1,68 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import {
   getStoreDetail,
   getStoreMenus,
   getStoreReviews,
   getStoreTimes,
-  searchStores,
-  getStoresByDistrict,
+  getStores,
+  getPopularStores,
+  getNearbyStores,
+  StoreListParams,
 } from './storeApi';
 
 /**
- * 매장명 검색 TanStack Query 훅
+ * 매장 목록 통합 조회 TanStack Query 훅
+ * @param params name·category·district 옵셔널
+ * @param enabled false면 호출 안 함 (입력 후에만 실행 등)
  */
-export const useSearchStoresQuery = (name: string) => {
+export const useStoresQuery = (params: StoreListParams = {}, enabled = true) => {
   return useQuery({
-    queryKey: ['searchStores', name],
-    queryFn: () => searchStores(name),
-    enabled: name !== undefined && name !== null,
+    queryKey: ['stores', params],
+    queryFn: () => getStores(params),
+    enabled,
   });
 };
 
 /**
- * 지역(구) 기준 매장 조회 TanStack Query 훅
- * @param district 백엔드 District enum 값 (예: 'GANGNAM')
+ * 매장 목록 통합 조회 무한 스크롤 훅 (카테고리/지역 필터 + 페이지네이션)
  */
-export const useDistrictStoresQuery = (district: string | null) => {
+export const useStoresInfiniteQuery = (
+  params: Omit<StoreListParams, 'page' | 'size'> = {},
+  size = 10,
+) => {
+  return useInfiniteQuery({
+    queryKey: ['storesInfinite', params, size],
+    queryFn: ({ pageParam = 0 }) => getStores({ ...params, page: pageParam, size }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === size ? allPages.length : undefined,
+  });
+};
+
+/**
+ * 인기 매장 조회 (평점 내림차순)
+ */
+export const usePopularStoresQuery = (limit = 10) => {
   return useQuery({
-    queryKey: ['districtStores', district],
-    queryFn: () => getStoresByDistrict(district as string),
-    enabled: !!district,
+    queryKey: ['popularStores', limit],
+    queryFn: () => getPopularStores(limit),
+  });
+};
+
+/**
+ * 내 주변 매장 무한 스크롤 조회
+ */
+export const useNearbyStoresInfiniteQuery = (
+  latitude: number,
+  longitude: number,
+  size = 10,
+) => {
+  return useInfiniteQuery({
+    queryKey: ['nearbyStores', latitude, longitude, size],
+    queryFn: ({ pageParam = 0 }) => getNearbyStores(latitude, longitude, pageParam, size),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === size ? allPages.length : undefined,
   });
 };
 

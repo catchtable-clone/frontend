@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Fragment, useMemo } from 'react';
+import { useState, Fragment } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Star, Clock, MapPin, Heart, Check, Plus } from 'lucide-react';
 import { DayPicker } from 'react-day-picker';
@@ -53,12 +53,6 @@ export default function StoreDetail() {
 
   const formattedSelectedDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
   const { data: times = [], isLoading: isTimesLoading } = useStoreTimesQuery(id, formattedSelectedDate);
-
-  const averageRating = useMemo(() => {
-    if (!reviews || reviews.length === 0) return '0.0';
-    const sum = reviews.reduce((acc, cur) => acc + (cur.star ?? 0), 0);
-    return (sum / reviews.length).toFixed(1);
-  }, [reviews]);
 
   const days = getNextDays(14);
   const remainData = store?.remainDates || [];
@@ -184,9 +178,8 @@ export default function StoreDetail() {
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Star size={14} className="fill-orange-400 text-orange-400" />
               <span>
-                {/* 리뷰 기반 평균 별점 자동 계산 */}
-                {averageRating}{' '}
-                ({store?.reviewCount || reviews.length})
+                {(store.averageStar ?? 0).toFixed(1)}{' '}
+                ({store.reviewCount ?? 0})
               </span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-600">

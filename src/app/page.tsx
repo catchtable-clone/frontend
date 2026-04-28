@@ -1,18 +1,49 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Ticket, Clock, X } from 'lucide-react';
+import { Ticket, Clock, X, Star } from 'lucide-react';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
 import StoreCard from '@/components/store/StoreCard';
 import CenteredModal from '@/components/common/CenteredModal';
-import { mockCategories, mockStores } from '@/lib/mockData';
+import { usePopularStoresQuery, useNearbyStoresInfiniteQuery } from '@/lib/storeQuery';
+import { STORE_CATEGORIES } from '@/lib/storeEnum';
+
+// 강남역 좌표 (위치 정보 미공유 시 기준점)
+const GANGNAM_LAT = 37.4979;
+const GANGNAM_LNG = 127.0276;
 
 export default function Home() {
-  const popularStores = mockStores.slice(0, 3);
+  const { data: popularStores = [], isLoading: isPopularLoading } = usePopularStoresQuery(10);
+  const {
+    data: nearbyData,
+    isLoading: isNearbyLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useNearbyStoresInfiniteQuery(GANGNAM_LAT, GANGNAM_LNG, 10);
+
+  const nearbyStores = nearbyData?.pages.flat() ?? [];
+
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [claimed, setClaimed] = useState(false);
+
+  // 무한 스크롤 트리거 (IntersectionObserver)
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const handleClaim = () => {
     setClaimed(true);
@@ -50,16 +81,16 @@ export default function Home() {
         {/* 카테고리 */}
         <section className="border-b border-gray-100 px-4 py-2">
           <div className="grid grid-cols-4 gap-1">
-            {mockCategories.map((category) => (
+            {STORE_CATEGORIES.map((category) => (
               <Link
-                key={category.id}
-                href={`/category?selected=${encodeURIComponent(category.name)}`}
+                key={category.enumValue}
+                href={`/category?selected=${category.enumValue}`}
                 className="flex flex-col items-center gap-1 rounded-xl p-2 transition-colors hover:bg-gray-100"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-50 text-xl">
                   {category.icon}
                 </div>
-                <span className="text-xs text-gray-600">{category.name}</span>
+                <span className="text-xs text-gray-600">{category.label}</span>
               </Link>
             ))}
           </div>
@@ -67,38 +98,71 @@ export default function Home() {
 
         {/* 인기 매장 */}
         <section className="border-b border-gray-100 px-4 py-4">
-          <h2 className="mb-3 text-base font-semibold text-gray-900">
-            인기 매장
-          </h2>
-          <div className="flex gap-3 overflow-x-auto scrollbar-hide">
-            {popularStores.map((store) => (
-              <Link
-                key={store.id}
-                href={`/stores/${store.id}`}
-                className="flex w-36 flex-shrink-0 flex-col gap-2 rounded-xl p-2 transition-colors hover:bg-gray-50"
-              >
-                <div className="h-24 w-full rounded-lg bg-gray-200" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {store.name}
-                  </p>
-                  <p className="text-xs text-gray-500">{store.category}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <h2 className="mb-3 text-base font-semibold text-gray-900">인기 매장</h2>
+          {isPopularLoading ? (
+            <p className="py-4 text-center text-sm text-gray-400">매장을 불러오는 중...</p>
+          ) : popularStores.length > 0 ? (
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide">
+              {popularStores.map((store) => (
+                <Link
+                  key={store.storeId}
+                  href={`/stores/${store.storeId}`}
+                  className="flex w-36 flex-shrink-0 flex-col gap-2 rounded-xl p-2 transition-colors hover:bg-gray-50"
+                >
+                  <div className="relative h-24 w-full overflow-hidden rounded-lg bg-gray-200">
+                    <img
+                      src={store.storeImage || '/images/ready_image.png'}
+                      alt={store.storeName}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = '/images/ready_image.png';
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {store.storeName}
+                    </p>
+                    <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+                      <Star size={11} className="fill-orange-400 text-orange-400" />
+                      <span>{store.averageStar.toFixed(1)}</span>
+                      <span className="text-gray-300">·</span>
+                      <span>리뷰 {store.reviewCount}</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="py-4 text-center text-sm text-gray-400">등록된 매장이 없습니다.</p>
+          )}
         </section>
 
         {/* 내 주변 매장 */}
         <section className="px-4 py-4">
-          <h2 className="mb-1 text-base font-semibold text-gray-900">
-            내 주변 매장
-          </h2>
-          <div>
-            {mockStores.map((store) => (
-              <StoreCard key={store.id} store={store} />
-            ))}
-          </div>
+          <h2 className="mb-1 text-base font-semibold text-gray-900">내 주변 매장</h2>
+          <p className="mb-2 text-xs text-gray-400">강남역 기준 가까운 매장</p>
+          {isNearbyLoading ? (
+            <p className="py-4 text-center text-sm text-gray-400">매장을 불러오는 중...</p>
+          ) : nearbyStores.length > 0 ? (
+            <>
+              <div>
+                {nearbyStores.map((store) => (
+                  <StoreCard key={store.storeId} store={store} />
+                ))}
+              </div>
+              {/* 무한 스크롤 sentinel */}
+              <div ref={sentinelRef} className="h-4" />
+              {isFetchingNextPage && (
+                <p className="py-4 text-center text-sm text-gray-400">불러오는 중...</p>
+              )}
+              {!hasNextPage && nearbyStores.length > 0 && (
+                <p className="py-4 text-center text-xs text-gray-400">마지막 매장입니다.</p>
+              )}
+            </>
+          ) : (
+            <p className="py-4 text-center text-sm text-gray-400">등록된 매장이 없습니다.</p>
+          )}
         </section>
       </main>
       <BottomNav />
