@@ -1,5 +1,21 @@
 import api from '@/lib/axios';
-import { StoreDetail, Menu, Review, StoreRemain } from '@/types/store';
+import { StoreDetail, StoreSummary, Menu, Review, StoreRemain } from '@/types/store';
+
+/**
+ * 매장명으로 매장 검색 (백엔드 GET /stores?name=)
+ */
+export const searchStores = async (name: string): Promise<StoreSummary[]> => {
+  const response = await api.get('/stores', { params: { name } });
+  return (response.data.data || response.data.result || response.data || []) as StoreSummary[];
+};
+
+/**
+ * 지역(구) 기준 매장 조회 (백엔드 GET /stores/district?district=)
+ */
+export const getStoresByDistrict = async (district: string): Promise<StoreSummary[]> => {
+  const response = await api.get('/stores/district', { params: { district } });
+  return (response.data.data || response.data.result || response.data || []) as StoreSummary[];
+};
 
 /**
  * 특정 ID를 가진 매장의 상세 정보를 조회하는 API 함수
@@ -8,29 +24,7 @@ import { StoreDetail, Menu, Review, StoreRemain } from '@/types/store';
  */
 export const getStoreDetail = async (storeId: string): Promise<StoreDetail> => {
   const response = await api.get(`/stores/${storeId}`);
-
-  // 백엔드가 공통 응답 형식(예: { status: 200, data: {...} })으로 감싸서 보낼 경우 알맹이 추출
-  const storeData = response.data.data || response.data.result || response.data;
-  
-  // 데이터 정규화 (Normalization)
-  const rawRemains = storeData.remainDates || storeData.storeRemains || storeData.remains || [];
-  storeData.remainDates = rawRemains.map((rd: any) => {
-    if (typeof rd === 'string') return { date: rd, isAvailable: true, remainTeam: 1 } as StoreRemain;
-    if (Array.isArray(rd)) return { date: rd[0], isAvailable: rd[1] > 0, remainTeam: rd[1] } as StoreRemain;
-    if (typeof rd === 'object' && rd !== null) {
-      const remainTeam = rd.remainTeam ?? rd.remainCount ?? rd.teamCount ?? 0;
-      return {
-        id: rd.id ?? rd.remainId ?? rd.remain_id ?? 0,
-        date: rd.date ?? rd.remainDate ?? rd.remain_date ?? '',
-        time: rd.time ?? rd.remainTime ?? rd.remain_time ?? '',
-        isAvailable: rd.available ?? rd.isAvailable ?? rd.hasRemain ?? (remainTeam > 0),
-        remainTeam: remainTeam,
-      } as StoreRemain;
-    }
-    return { id: 0, date: '', time: '', isAvailable: false, remainTeam: 0 } as StoreRemain;
-  });
-
-  return storeData as StoreDetail;
+  return (response.data.data || response.data.result || response.data) as StoreDetail;
 };
 
 /**
@@ -40,8 +34,7 @@ export const getStoreDetail = async (storeId: string): Promise<StoreDetail> => {
 export const getStoreMenus = async (storeId: string): Promise<Menu[]> => {
   // 백엔드 API 설계에 맞춰 정확한 주소로 변경합니다.
   const response = await api.get(`/stores/${storeId}/menu`);
-  const menuData = response.data.data || response.data.result || response.data;
-  return menuData as Menu[];
+  return (response.data.data || response.data.result || response.data || []) as Menu[];
 };
 
 /**
@@ -49,19 +42,8 @@ export const getStoreMenus = async (storeId: string): Promise<Menu[]> => {
  * @param storeId - 조회할 매장의 ID
  */
 export const getStoreReviews = async (storeId: string): Promise<Review[]> => {
-  // /stores/{id}/reviews (GET) 은 405 에러가 발생하므로, 도메인 주도 REST 규칙에 맞춰 우회 호출합니다.
-  // 첫 번째 패턴 시도 후 404 발생 시 두 번째 패턴으로 자동 재시도
-  try {
-    const response = await api.get(`/reviews/store/${storeId}`);
-    return (response.data.data || response.data.result || response.data) as Review[];
-  } catch (error: any) {
-    // 404(Not Found) 또는 405(Method Not Allowed) 에러일 경우에만 우회 호출 시도
-    if (error.response && (error.response.status === 404 || error.response.status === 405)) {
-      const fallbackResponse = await api.get(`/reviews`, { params: { storeId } });
-      return (fallbackResponse.data.data || fallbackResponse.data.result || fallbackResponse.data) as Review[];
-    }
-    throw error;
-  }
+  const response = await api.get(`/reviews/store/${storeId}`);
+  return (response.data.data || response.data.result || response.data || []) as Review[];
 };
 
 /**
@@ -70,19 +52,6 @@ export const getStoreReviews = async (storeId: string): Promise<Review[]> => {
  * @param date - 조회할 날짜 (YYYY-MM-DD)
  */
 export const getStoreTimes = async (storeId: string, date: string): Promise<StoreRemain[]> => {
-  // 백엔드 명세에 맞춰 /remains 엔드포인트에 쿼리 파라미터로 storeId와 date를 전달합니다.
   const response = await api.get(`/remains`, { params: { storeId, date } });
-  const rawData = response.data.data || response.data.result || response.data || [];
-
-  // 데이터 정규화 (Normalization)
-  return rawData.map((t: any) => {
-    const remainTeam = t.remainTeam ?? t.remainCount ?? t.teamCount ?? 0;
-    return {
-      id: t.id ?? t.remainId ?? t.remain_id ?? 0,
-      date: t.date ?? t.remainDate ?? t.remain_date ?? '',
-      time: t.time ?? t.remainTime ?? t.remain_time ?? '',
-      isAvailable: t.available ?? t.isAvailable ?? t.hasRemain ?? (remainTeam > 0),
-      remainTeam: remainTeam,
-    } as StoreRemain;
-  });
+  return (response.data.data || response.data.result || response.data || []) as StoreRemain[];
 };

@@ -2,8 +2,9 @@
  * 백엔드에서 넘어오는 Store(매장) 데이터의 상세 정보를 위한 타입
  */
 export interface StoreDetail {
-  id: number;
+  storeId: number;
   storeName: string;
+  storeImage?: string;
   category: string;
   address: string;
   district: string;
@@ -13,14 +14,24 @@ export interface StoreDetail {
   closeTime: string;
   reviewCount?: number;
   bookmarkCount?: number;
-  remainDates?: StoreRemain[];
+  remainDates?: RemainDate[];
 }
 
-export interface StoreRemain {
-  id: number;
+/**
+ * 매장 상세의 날짜별 예약 가능 여부 (백엔드 RemainDateResponse)
+ */
+export interface RemainDate {
   date: string;
-  time: string;
-  isAvailable: boolean;
+  available: boolean;
+}
+
+/**
+ * 시간대 조회 응답 (백엔드 StoreRemainResponseDto)
+ */
+export interface StoreRemain {
+  remainId: number;
+  remainDate: string;
+  remainTime: string;
   remainTeam: number;
 }
 
@@ -43,12 +54,26 @@ export interface BookmarkFolder {
 }
 
 export interface Menu {
-  id: number;
-  storeId: number;
-  name: string;
-  description: string;
+  menuId: number;
+  storeId?: number;
+  menuName: string;
+  description?: string;
   price: number;
   menuImage?: string;
+}
+
+/**
+ * 매장 목록 응답용 타입 (백엔드 StoreListResponse)
+ */
+export interface StoreSummary {
+  storeId: number;
+  storeName: string;
+  storeImage?: string;
+  category: string;
+  address: string;
+  district?: string;
+  latitude: number;
+  longitude: number;
 }
 
 export type ReservationStatus = 'CONFIRMED' | 'VISITED' | 'CANCELLED' | 'NOSHOW';
@@ -66,15 +91,20 @@ export interface Reservation {
 }
 
 export interface Review {
-  id?: number;
-  reviewId?: number;
+  reviewId: number;
   reservationId?: number;
   storeId?: number;
-  rating?: number;
+  storeName?: string;
+  userId?: number;
+  userNickname?: string;
   star?: number;
   content: string;
-  imageUrls?: string[];
+  reviewImage?: string;
   createdAt: string;
+  // 임시 호환 필드 (mypage/reviews 등 다른 페이지에서 사용 중, Phase 2/3 정리 예정)
+  id?: number;
+  rating?: number;
+  imageUrls?: string[];
   userName?: string;
   user?: { id: number; name?: string; nickname?: string };
   nickname?: string;

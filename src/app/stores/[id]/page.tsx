@@ -56,7 +56,7 @@ export default function StoreDetail() {
 
   const averageRating = useMemo(() => {
     if (!reviews || reviews.length === 0) return '0.0';
-    const sum = reviews.reduce((acc, cur) => acc + (cur.rating ?? cur.star ?? 0), 0);
+    const sum = reviews.reduce((acc, cur) => acc + (cur.star ?? 0), 0);
     return (sum / reviews.length).toFixed(1);
   }, [reviews]);
 
@@ -65,7 +65,7 @@ export default function StoreDetail() {
 
   const availableDates = new Set(
     remainData
-      .filter((rd) => rd.remainTeam > 0 || rd.isAvailable)
+      .filter((rd) => rd.available)
       .map((rd) => {
         const dateVal = rd.date;
         if (!dateVal) return '';
@@ -110,7 +110,7 @@ export default function StoreDetail() {
   }
 
   const currentFolder = folders.find((f) =>
-    f.storeIds.includes(store.id),
+    f.storeIds.includes(store.storeId),
   ) || null;
 
   const handleReserveClick = () => {
@@ -124,7 +124,7 @@ export default function StoreDetail() {
     if (!selectedTime || !selectedRemainId) return;
     setShowTimeModal(false);
     
-    const url = `/reservation?storeId=${store?.id || id}&date=${formattedSelectedDate}&time=${selectedTime}&remainId=${selectedRemainId}`;
+    const url = `/reservation?storeId=${store?.storeId || id}&date=${formattedSelectedDate}&time=${selectedTime}&remainId=${selectedRemainId}`;
     router.push(changeFrom ? `${url}&changeFrom=${changeFrom}` : url);
   };
 
@@ -134,7 +134,16 @@ export default function StoreDetail() {
 
       <main className="flex-1">
         {/* 매장 이미지 */}
-        <div className="h-48 w-full bg-gray-200" />
+        <div className="relative h-48 w-full bg-gray-200">
+          <img
+            src={store.storeImage || '/images/ready_image.png'}
+            alt={store.storeName}
+            className="absolute inset-0 h-full w-full object-cover"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = '/images/ready_image.png';
+            }}
+          />
+        </div>
 
         {/* 매장 정보 */}
         <section className="border-b border-gray-100 px-4 py-4">
@@ -149,7 +158,7 @@ export default function StoreDetail() {
                   setFolders((prev) =>
                     prev.map((f) =>
                       f.id === currentFolder.id
-                        ? { ...f, storeIds: f.storeIds.filter((sid) => sid !== store.id) }
+                        ? { ...f, storeIds: f.storeIds.filter((sid) => sid !== store.storeId) }
                         : f,
                     ),
                   );
@@ -186,7 +195,7 @@ export default function StoreDetail() {
               <button
                 onClick={() =>
                   router.push(
-                    `/map?lat=${store.latitude}&lng=${store.longitude}&storeId=${store.id}`,
+                    `/map?lat=${store.latitude}&lng=${store.longitude}&storeId=${store.storeId}`,
                   )
                 }
                 className="ml-1 text-xs text-orange-500 hover:underline"
@@ -278,12 +287,18 @@ export default function StoreDetail() {
           ) : menus.length > 0 ? (
             <div className="flex flex-col gap-4">
               {menus.map((menu) => (
-                <div key={menu.id} className="flex items-center gap-4">
-                  {/* 추후 백엔드에서 이미지 URL을 제공하면 img 태그로 변경 가능 */}
-                  <div className="h-16 w-16 flex-shrink-0 rounded-lg bg-gray-200" />
+                <div key={menu.menuId} className="flex items-center gap-4">
+                  <img
+                    src={menu.menuImage || '/images/ready_image.png'}
+                    alt={menu.menuName}
+                    className="h-16 w-16 flex-shrink-0 rounded-lg bg-gray-200 object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/images/ready_image.png';
+                    }}
+                  />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">
-                      {menu.name}
+                      {menu.menuName}
                     </p>
                     <p className="text-xs text-gray-500">{menu.description}</p>
                     <p className="mt-1 text-sm font-semibold text-gray-900">
@@ -310,9 +325,9 @@ export default function StoreDetail() {
           ) : reviews.length > 0 ? (
             <div className="flex flex-col gap-4">
               {reviews.map((review, index) => {
-                const reviewKey = review.id || review.reviewId || `review-${index}`;
-                const reviewerName = review.userName || review.user?.name || review.user?.nickname || review.nickname || '익명';
-                const rating = review.rating ?? review.star ?? 0;
+                const reviewKey = review.reviewId || `review-${index}`;
+                const reviewerName = review.userNickname || '익명';
+                const rating = review.star ?? 0;
                 
                 return (
                   <div
@@ -423,16 +438,15 @@ export default function StoreDetail() {
                   <p className="col-span-5 py-4 text-center text-sm text-gray-400">시간을 불러오는 중...</p>
                 ) : times.length > 0 ? (
                   times.map((t, index) => {
-                    const tTime = t.time || '';
-                    const displayTime = tTime.length > 5 ? tTime.substring(0, 5) : tTime;
-                    const isFull = t.remainTeam <= 0 && !t.isAvailable;
+                    const displayTime = t.remainTime || '';
+                    const isFull = t.remainTeam <= 0;
                     return (
                     <button
-                      key={t.id || `time-${index}`}
+                      key={t.remainId || `time-${index}`}
                       onClick={() => {
-                        if (t.id) {
+                        if (t.remainId) {
                           setSelectedTime(displayTime);
-                          setSelectedRemainId(t.id);
+                          setSelectedRemainId(t.remainId);
                           setSelectedTimeIsFull(isFull);
                         }
                       }}
@@ -543,8 +557,8 @@ export default function StoreDetail() {
                         ...f,
                         storeIds:
                           f.id === selectedFolderId
-                            ? [...f.storeIds.filter((sid) => sid !== store.id), store.id]
-                            : f.storeIds.filter((sid) => sid !== store.id),
+                            ? [...f.storeIds.filter((sid) => sid !== store.storeId), store.storeId]
+                            : f.storeIds.filter((sid) => sid !== store.storeId),
                       })),
                     );
                   }

@@ -1,5 +1,35 @@
 import { useQuery } from '@tanstack/react-query';
-import { getStoreDetail, getStoreMenus, getStoreReviews, getStoreTimes } from './storeApi';
+import {
+  getStoreDetail,
+  getStoreMenus,
+  getStoreReviews,
+  getStoreTimes,
+  searchStores,
+  getStoresByDistrict,
+} from './storeApi';
+
+/**
+ * 매장명 검색 TanStack Query 훅
+ */
+export const useSearchStoresQuery = (name: string) => {
+  return useQuery({
+    queryKey: ['searchStores', name],
+    queryFn: () => searchStores(name),
+    enabled: name !== undefined && name !== null,
+  });
+};
+
+/**
+ * 지역(구) 기준 매장 조회 TanStack Query 훅
+ * @param district 백엔드 District enum 값 (예: 'GANGNAM')
+ */
+export const useDistrictStoresQuery = (district: string | null) => {
+  return useQuery({
+    queryKey: ['districtStores', district],
+    queryFn: () => getStoresByDistrict(district as string),
+    enabled: !!district,
+  });
+};
 
 /**
  * 매장 상세 정보를 조회하는 TanStack Query 전용 훅
