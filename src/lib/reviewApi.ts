@@ -1,4 +1,5 @@
 import api from '@/lib/axios';
+import { unwrap } from '@/lib/apiUtils';
 
 export interface CreateReviewRequest {
   reservationId: number;
@@ -46,5 +47,5 @@ export const createReview = async (userId: number, data: CreateReviewRequest): P
  */
 export const getMyReviews = async (userId: number): Promise<ReviewResponse[]> => {
   const response = await api.get('/reviews/me', { params: { userId } });
-  return (response.data.data || response.data.result || response.data || []) as ReviewResponse[];
+  return unwrap<ReviewResponse[]>(response, []);
 };

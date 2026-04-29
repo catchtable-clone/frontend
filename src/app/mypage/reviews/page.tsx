@@ -48,7 +48,7 @@ export default function MyReviewsPage() {
               const store = mockStores.find((s) => s.id === review.storeId);
               return (
                 <div
-                  key={review.id}
+                  key={review.reviewId}
                   className="rounded-xl border border-gray-200 bg-white p-4"
                 >
                   {/* 매장 정보 + 삭제 */}
@@ -67,16 +67,16 @@ export default function MyReviewsPage() {
                       </h3>
                     </button>
                     <button
-                      onClick={() => handleDelete(review.id)}
+                      onClick={() => handleDelete(review.reviewId)}
                       className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-500"
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
 
-                  {/* 별점 + 날짜 */}
+                  {/* 별점 + 날짜 — 백엔드는 star, mockData는 rating 둘 다 호환 */}
                   <div className="mt-2 flex items-center gap-2">
-                    <StarRating rating={review.rating} />
+                    <StarRating rating={review.rating ?? review.star ?? 0} />
                     <span className="text-xs text-gray-400">
                       {formatDateDot(review.createdAt)}
                     </span>
@@ -89,21 +89,26 @@ export default function MyReviewsPage() {
                     </p>
                   )}
 
-                  {/* 리뷰 이미지 */}
-                  {review.imageUrls.length > 0 && (
-                    <div className="mt-3 flex gap-2 overflow-x-auto">
-                      {review.imageUrls.map((url, idx) => (
-                        <div key={idx} className="relative h-20 w-20 flex-shrink-0">
-                          <Image
-                            src={url}
-                            alt={`리뷰 이미지 ${idx + 1}`}
-                            fill
-                            className="rounded-lg object-cover"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {/* 리뷰 이미지 — 백엔드는 reviewImage(단일), mockData는 imageUrls(배열) 둘 다 호환 */}
+                  {(() => {
+                    const images: string[] = review.imageUrls
+                      ?? (review.reviewImage ? [review.reviewImage] : []);
+                    if (images.length === 0) return null;
+                    return (
+                      <div className="mt-3 flex gap-2 overflow-x-auto">
+                        {images.map((url, idx) => (
+                          <div key={idx} className="relative h-20 w-20 flex-shrink-0">
+                            <Image
+                              src={url}
+                              alt={`리뷰 이미지 ${idx + 1}`}
+                              fill
+                              className="rounded-lg object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}

@@ -121,3 +121,19 @@ export interface VacancySubscription {
   date: string;
   time: string;
 }
+
+/**
+ * 쿠폰 상태 — 사용 가능 / 사용 완료 / 기간 만료
+ */
+export type CouponStatus = 'AVAILABLE' | 'USED' | 'EXPIRED';
+
+/**
+ * 사용자 보유 쿠폰
+ */
+export interface Coupon {
+  id: number;
+  name: string;
+  discountRate: number;
+  status: CouponStatus;
+  expiresAt: string;
+}

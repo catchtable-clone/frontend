@@ -1,13 +1,62 @@
 import api from '@/lib/axios';
+import { unwrap } from '@/lib/apiUtils';
 import { StoreDetail, StoreSummary, Menu, Review, StoreRemain } from '@/types/store';
 
 /**
- * 백엔드 ApiResponse 래핑(`{ status, message, data }`) 안의 실제 데이터를 추출.
- * 다양한 필드명(data/result) 또는 raw 응답 모두 지원.
+ * 매장 등록 요청 (백엔드 StoreCreateRequest)
  */
-const unwrap = <T>(response: { data: any }, fallback: T): T => {
-  const body = response.data;
-  return (body?.data ?? body?.result ?? body ?? fallback) as T;
+export interface StoreCreateRequest {
+  storeName: string;
+  storeImage?: string;
+  category: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  district: string;
+  team: number;
+  openTime: string;
+  closeTime: string;
+}
+
+/**
+ * 매장 등록 (어드민 전용, 백엔드 POST /stores)
+ */
+export const createStore = async (data: StoreCreateRequest): Promise<{ storeId: number }> => {
+  const response = await api.post('/stores', data);
+  return unwrap<{ storeId: number }>(response, { storeId: 0 });
+};
+
+/**
+ * 매장 정보 수정 (어드민 전용, 백엔드 PUT /stores/{storeId})
+ * 등록 후 이미지 업로드 → 다시 storeImage URL을 반영하는 3단계 흐름에서 사용.
+ */
+export const updateStore = async (
+  storeId: number,
+  data: StoreCreateRequest,
+): Promise<{ storeId: number }> => {
+  const response = await api.put(`/stores/${storeId}`, data);
+  return unwrap<{ storeId: number }>(response, { storeId });
+};
+
+/**
+ * 메뉴 일괄 등록 요청
+ */
+export interface MenuItemRequest {
+  menuName: string;
+  price: number;
+  description?: string;
+  menuImage?: string;
+}
+
+/**
+ * 메뉴 일괄 등록 (백엔드 POST /stores/{storeId}/menu)
+ */
+export const createMenus = async (
+  storeId: number,
+  menus: MenuItemRequest[],
+): Promise<{ menuId: number[] }> => {
+  const response = await api.post(`/stores/${storeId}/menu`, { menus });
+  return unwrap<{ menuId: number[] }>(response, { menuId: [] });
 };
 
 /**
