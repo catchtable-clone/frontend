@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Ticket } from 'lucide-react';
 import Header from '@/components/common/Header';
 import Tabs from '@/components/common/Tabs';
-import { mockCoupons } from '@/lib/mockData';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { getMyCoupons } from '@/lib/api/coupons';
 import { formatDateDot } from '@/lib/utils';
 import type { Coupon, CouponStatus } from '@/types/store';
 
@@ -67,7 +69,15 @@ function CouponCard({ coupon }: { coupon: Coupon }) {
 
 export default function MyCouponsPage() {
   const [tab, setTab] = useState<'available' | 'used'>('available');
-  const coupons = mockCoupons;
+
+  const {
+    data: coupons = [],
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ['coupons', 'me'],
+    queryFn: getMyCoupons,
+  });
 
   const available = coupons.filter((c) => c.status === 'AVAILABLE');
   const used = coupons.filter((c) => c.status !== 'AVAILABLE');
@@ -90,7 +100,13 @@ export default function MyCouponsPage() {
 
         {/* 쿠폰 목록 */}
         <div className="flex flex-col gap-3 px-4 py-4">
-          {currentList.length === 0 ? (
+          {isLoading ? (
+            <LoadingSpinner message="쿠폰을 불러오는 중..." />
+          ) : isError ? (
+            <div className="flex flex-col items-center gap-3 py-16">
+              <p className="text-sm text-red-500">쿠폰을 불러오지 못했습니다</p>
+            </div>
+          ) : currentList.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-16">
               <Ticket size={40} className="text-gray-300" />
               <p className="text-sm text-gray-400">
