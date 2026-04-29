@@ -88,3 +88,26 @@ export interface VacancySubscription {
   date: string;
   time: string;
 }
+
+// === 쿠폰 ===
+export type CouponStatus = 'AVAILABLE' | 'USED' | 'EXPIRED';
+
+export interface Coupon {
+  id: number;
+  name: string;
+  discountRate: number;
+  status: CouponStatus;
+  expiresAt: string;
+}
+
+// === 쿠폰 백엔드 DTO ===
+export type BackendCouponStatus = 'UNUSED' | 'USED' | 'EXPIRED';
+
+export interface CouponReadResponseDto {
+  couponId: number;
+  couponName: string;
+  discountRate: number;
+  status: BackendCouponStatus;
+  usedAt: string | null;
+  expiredAt: string;
+}
