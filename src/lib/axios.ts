@@ -8,9 +8,15 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().accessToken;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const { userId, accessToken } = useAuthStore.getState();
+
+  // TODO: 백엔드 인증 구현 후 X-User-Id 제거. JWT 방식으로 전환
+  if (userId !== null) {
+    config.headers['X-User-Id'] = String(userId);
+  }
+
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
 });
