@@ -103,6 +103,36 @@ export const getNearbyStores = async (
 };
 
 /**
+ * 지도 화면 영역 안의 매장 조회. 카카오맵 idle 이벤트에서 호출한다.
+ * limit는 너무 넓은 영역(전국)에서 응답 폭주 방지용 상한선.
+ */
+export interface StoreBounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+  /** 지도 화면 중심 — 가까운 순으로 정렬할 때 기준점 */
+  centerLat: number;
+  centerLng: number;
+  limit?: number;
+}
+
+export const getStoresInBounds = async (bounds: StoreBounds): Promise<StoreSummary[]> => {
+  const response = await api.get('/stores/in-bounds', {
+    params: {
+      minLat: bounds.minLat,
+      maxLat: bounds.maxLat,
+      minLng: bounds.minLng,
+      maxLng: bounds.maxLng,
+      centerLat: bounds.centerLat,
+      centerLng: bounds.centerLng,
+      limit: bounds.limit ?? 1000,
+    },
+  });
+  return unwrap<StoreSummary[]>(response, []);
+};
+
+/**
  * 특정 ID를 가진 매장의 상세 정보를 조회하는 API 함수
  * @param storeId - 조회할 매장의 ID
  * @returns 매장 상세 정보

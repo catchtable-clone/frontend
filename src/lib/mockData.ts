@@ -146,7 +146,7 @@ export const mockReservations: Reservation[] = [
     date: '2026-04-08',
     time: '14:00',
     guestCount: 3,
-    status: 'CANCELLED',
+    status: 'CANCELED',
     createdAt: '2026-04-03T16:20:00',
   },
   {

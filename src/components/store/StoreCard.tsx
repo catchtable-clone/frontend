@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Heart, Star } from 'lucide-react';
 import { StoreSummary } from '@/types/store';
-import { mockBookmarkFolders } from '@/lib/mockData';
+import { useBookmarkedFolderForStore } from '@/hooks/useBookmarkedFolderForStore';
 import { toCategoryLabel } from '@/lib/storeEnum';
 
 interface StoreCardProps {
@@ -9,9 +9,8 @@ interface StoreCardProps {
 }
 
 export default function StoreCard({ store }: StoreCardProps) {
-  const folder = mockBookmarkFolders.find((f) =>
-    f.storeIds.includes(store.storeId),
-  );
+  // 로그인한 사용자의 북마크 폴더에 이 매장이 속해 있다면 해당 폴더를 반환.
+  const folder = useBookmarkedFolderForStore(store.storeId);
 
   return (
     <Link

@@ -9,13 +9,19 @@ import 'react-day-picker/style.css';
 import Header from '@/components/common/Header';
 import BottomSheet from '@/components/common/BottomSheet';
 import CenteredModal from '@/components/common/CenteredModal';
-import { mockBookmarkFolders } from '@/lib/mockData';
 import StarRating from '@/components/common/StarRating';
 import { formatDateParts, formatDateDot } from '@/lib/utils';
 import FolderFormModal from '@/components/common/FolderFormModal';
-import type { BookmarkFolder, StoreRemain } from '@/types/store';
+import type { StoreRemain } from '@/types/store';
 import { useStoreDetailQuery, useStoreMenusQuery, useStoreReviewsQuery, useStoreTimesQuery } from '@/lib/storeQuery';
 import { useCreateVacancyMutation } from '@/lib/vacancyQuery';
+import {
+  useBookmarkFoldersQuery,
+  useCreateBookmarkFolderMutation,
+  useAddBookmarkMutation,
+} from '@/lib/bookmarkQuery';
+import { useBookmarkedFolderForStore } from '@/hooks/useBookmarkedFolderForStore';
+import { useAuthStore } from '@/stores/authStore';
 function getNextDays(count: number) {
   const days = [];
   const today = new Date();
@@ -48,8 +54,23 @@ export default function StoreDetail() {
   const [showTimeModal, setShowTimeModal] = useState(false);
   const [showFolderSheet, setShowFolderSheet] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
-  const [folders, setFolders] = useState<BookmarkFolder[]>(mockBookmarkFolders);
   const [showNewFolder, setShowNewFolder] = useState(false);
+
+  // 북마크 폴더 API 연동 — 비로그인이면 빈 배열로 동작
+  const { accessToken } = useAuthStore();
+  const { data: folderResponses = [] } = useBookmarkFoldersQuery();
+  const folders = folderResponses.map((f) => ({
+    id: f.folderId,
+    name: f.folderName,
+    color: f.color,
+    type: f.folderType,
+  }));
+  const { mutate: createFolder } = useCreateBookmarkFolderMutation();
+  const { mutate: addBookmark } = useAddBookmarkMutation();
+
+  // 현재 매장이 속한 폴더 (없으면 null) — 하트 색상 결정용
+  const storeIdNumber = Number(id);
+  const currentFolder = useBookmarkedFolderForStore(storeIdNumber);
 
   const formattedSelectedDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
   const { data: times = [], isLoading: isTimesLoading } = useStoreTimesQuery(id, formattedSelectedDate);
@@ -103,10 +124,6 @@ export default function StoreDetail() {
     );
   }
 
-  const currentFolder = folders.find((f) =>
-    f.storeIds.includes(store.storeId),
-  ) || null;
-
   const handleReserveClick = () => {
     setSelectedTime(null);
     setSelectedRemainId(null);
@@ -148,17 +165,12 @@ export default function StoreDetail() {
             </div>
             <button
               onClick={() => {
-                if (currentFolder) {
-                  setFolders((prev) =>
-                    prev.map((f) =>
-                      f.id === currentFolder.id
-                        ? { ...f, storeIds: f.storeIds.filter((sid) => sid !== store.storeId) }
-                        : f,
-                    ),
-                  );
-                } else {
-                  setShowFolderSheet(true);
+                if (!accessToken) {
+                  alert('로그인이 필요합니다.');
+                  return;
                 }
+                // 폴더 시트에서 추가/이동/제거를 통합 관리
+                setShowFolderSheet(true);
               }}
               className="rounded-full p-2 hover:bg-gray-100"
             >
@@ -544,23 +556,22 @@ export default function StoreDetail() {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => {
-                  if (selectedFolderId) {
-                    setFolders((prev) =>
-                      prev.map((f) => ({
-                        ...f,
-                        storeIds:
-                          f.id === selectedFolderId
-                            ? [...f.storeIds.filter((sid) => sid !== store.storeId), store.storeId]
-                            : f.storeIds.filter((sid) => sid !== store.storeId),
-                      })),
+                  if (selectedFolderId && store) {
+                    addBookmark(
+                      { folderId: selectedFolderId, storeId: store.storeId },
+                      {
+                        onError: (err: any) => {
+                          alert(err?.response?.data?.message || '북마크 추가 중 오류가 발생했습니다.');
+                        },
+                      },
                     );
                   }
                   setShowFolderSheet(false);
                   setSelectedFolderId(null);
                 }}
-                disabled={!selectedFolderId}
+                disabled={!selectedFolderId || !accessToken}
                 className={`flex-1 rounded-lg py-2.5 text-sm font-semibold text-white ${
-                  selectedFolderId
+                  selectedFolderId && accessToken
                     ? 'bg-blue-500 hover:bg-blue-600'
                     : 'bg-gray-300'
                 }`}
@@ -585,15 +596,15 @@ export default function StoreDetail() {
         <FolderFormModal
           mode="create"
           onSubmit={(name, color) => {
-            const newFolder: BookmarkFolder = {
-              id: Math.max(...folders.map((f) => f.id)) + 1,
-              name,
-              type: 'CUSTOM',
-              color,
-              storeIds: [],
-            };
-            setFolders((prev) => [...prev, newFolder]);
-            setSelectedFolderId(newFolder.id);
+            createFolder(
+              { folderName: name, color },
+              {
+                onSuccess: (res) => setSelectedFolderId(res.folderId),
+                onError: (err: any) => {
+                  alert(err?.response?.data?.message || '폴더 생성 중 오류가 발생했습니다.');
+                },
+              },
+            );
             setShowNewFolder(false);
           }}
           onClose={() => setShowNewFolder(false)}

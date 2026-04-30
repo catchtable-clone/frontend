@@ -17,19 +17,24 @@ export interface ReservationUpdateRequest {
 }
 
 /**
- * 백엔드 예약 응답 DTO. 명세에 정의된 필드만 매핑한다.
- * (이전 버전의 store_id / store?.id / restaurantId 같은 폴백 매핑은 제거.
- *  실제 누락이라면 정상적으로 undefined가 노출되어 즉시 발견되도록 한다.)
+ * 백엔드 ReservationListResponseDto와 1:1 매칭되는 응답 타입.
+ * 필드명은 모두 백엔드 record 그대로 사용한다.
+ *  - id (예약 PK)
+ *  - remainDate / remainTime (StoreRemain의 날짜·시간)
+ *  - status는 서비스에서 toLowerCase()로 내려줌 (예: "pending", "confirmed")
  */
 interface ReservationApiResponse {
-  reservationId: number;
+  id: number;
+  remainId: number;
+  status: string;
   storeId: number;
   storeName: string;
+  storeImage: string;
   storeCategory: string;
-  date: string;
-  time: string;
+  remainDate: string;
+  remainTime: string;
   member: number;
-  status: ReservationStatus;
+  createdAt: string;
 }
 
 /**
@@ -49,22 +54,22 @@ export const createReservation = async (data: ReservationRequest): Promise<Reser
 };
 
 /**
- * 내 예약 내역 목록 조회
+ * 내 예약 내역 목록 조회.
+ * 백엔드 status는 lowercase("pending"...)로 내려오므로 프론트 enum(uppercase)로 정규화한다.
  */
 export const getReservations = async (userId: number): Promise<Reservation[]> => {
   const response = await api.get('/reservations/me', { params: { userId } });
   const rawData = unwrap<ReservationApiResponse[]>(response, []);
 
-  // 백엔드 DTO 필드명을 프론트 Reservation 타입으로 1:1 매핑
   return rawData.map((item) => ({
-    id: item.reservationId,
+    id: item.id,
     storeId: item.storeId,
     storeName: item.storeName,
     storeCategory: toCategoryLabel(item.storeCategory),
-    date: item.date,
-    time: item.time,
+    date: item.remainDate,
+    time: item.remainTime,
     guestCount: item.member,
-    status: item.status,
+    status: (item.status?.toUpperCase() ?? 'PENDING') as ReservationStatus,
   }));
 };
 

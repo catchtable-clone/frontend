@@ -40,16 +40,33 @@ export interface StoreRemain {
  * 아래는 기존 UI 컴포넌트(북마크, 예약, 리뷰 등)에서 사용되는 타입 및 상수들입니다.
  */
 
-export const FOLDER_COLORS = [
-  '#EF4444', '#F97316', '#EAB308', '#22C55E', 
-  '#3B82F6', '#A855F7', '#EC4899', '#6B7280'
+/**
+ * 무지개 팔레트 — 빨주노초파남보 + 회색.
+ * value는 백엔드 bookmark_folders.color 컬럼(VARCHAR HEX)에 그대로 저장된다.
+ */
+export const FOLDER_COLORS: Array<{ value: string; label: string }> = [
+  { value: '#EF4444', label: '빨강' },
+  { value: '#F97316', label: '주황' },
+  { value: '#EAB308', label: '노랑' },
+  { value: '#22C55E', label: '초록' },
+  { value: '#3B82F6', label: '파랑' },
+  { value: '#1E3A8A', label: '남색' },
+  { value: '#A855F7', label: '보라' },
+  { value: '#6B7280', label: '회색' },
 ];
 
+/**
+ * 클라이언트 측 폴더 표현. 백엔드 BookmarkFolderListResponse를 어댑팅한다.
+ *  - id ← folderId
+ *  - name ← folderName
+ *  - type: 'DEFAULT' | 'CUSTOM' (백엔드 동일)
+ *  - storeIds: 폴더 안 매장 ID 배열 (필요 시 별도 조회)
+ */
 export interface BookmarkFolder {
   id: number;
   name: string;
   color: string;
-  type?: string;
+  type?: 'DEFAULT' | 'CUSTOM' | 'SLACK';
   storeIds: number[];
   count?: number;
 }
@@ -79,7 +96,11 @@ export interface StoreSummary {
   reviewCount: number;
 }
 
-export type ReservationStatus = 'CONFIRMED' | 'VISITED' | 'CANCELLED' | 'NOSHOW';
+/**
+ * 백엔드 ReservationStatus enum과 1:1 매칭.
+ * 주의: 백엔드는 'CANCELED' (single L). 프론트도 동일하게 사용한다.
+ */
+export type ReservationStatus = 'PENDING' | 'CONFIRMED' | 'VISITED' | 'CANCELED' | 'NOSHOW';
 
 export interface Reservation {
   id: number;
