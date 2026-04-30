@@ -57,7 +57,6 @@ export const markNotificationAsRead = async (id: number): Promise<void> => {
  * 모든 알림을 읽음 상태로 변경합니다.
  */
 export const markAllNotificationsAsRead = async (): Promise<void> => {
-  // 참고: 백엔드 NotificationController.java에 /read-all 엔드포인트가 없습니다. 추가가 필요합니다.
   console.log('[notificationApi] Marking all notifications as read for userId=1');
   const response = await fetch(`${API_BASE_URL}/notifications/read-all?userId=1`, {
     method: 'PATCH', // 또는 'PUT'
