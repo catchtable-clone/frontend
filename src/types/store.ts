@@ -158,3 +158,15 @@ export interface Coupon {
   status: CouponStatus;
   expiresAt: string;
 }
+
+// === 쿠폰 백엔드 DTO ===
+export type BackendCouponStatus = 'UNUSED' | 'USED' | 'EXPIRED';
+
+export interface CouponReadResponseDto {
+  couponId: number;
+  couponName: string;
+  discountRate: number;
+  status: BackendCouponStatus;
+  usedAt: string | null;
+  expiredAt: string;
+}
