@@ -170,3 +170,45 @@ export interface CouponReadResponseDto {
   usedAt: string | null;
   expiredAt: string;
 }
+
+// === 알림 ===
+// 백엔드 NotificationType enum 매칭. 단, 프론트는 RESERVATION_REMIND(백엔드 REMINDER) 사용 중 — 정리 필요
+export type NotificationType =
+  | 'RESERVATION_CONFIRMED'
+  | 'RESERVATION_REMIND'
+  | 'VACANCY';
+
+export interface Notification {
+  notificationId: number;
+  type: NotificationType;
+  title: string;
+  content: string;
+  relatedItemId?: number;
+  read: boolean;
+  storeName?: string;
+  createdAt: string;
+}
+
+// === 챗봇 메시지 ===
+export interface ChatMessage {
+  id: number;
+  role: 'USER' | 'ASSISTANT';
+  content: string;
+  createdAt: string;
+}
+
+// === 레거시 mock data 호환용 타입 (mockData.ts에서만 사용) ===
+export interface Store {
+  id: number;
+  name: string;
+  category: string;
+  address: string;
+  rating: number;
+  reviewCount: number;
+  imageUrl: string;
+  openTime: string;
+  closeTime: string;
+  lat: number;
+  lng: number;
+  isClosed?: boolean;
+}

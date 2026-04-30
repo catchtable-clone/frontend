@@ -1,15 +1,4 @@
-import { Store, Category, Reservation, Review, Coupon, BookmarkFolder, Notification, VacancySubscription, StoreReview } from '@/types/store';
-
-export const mockCategories: Category[] = [
-  { id: 1, name: '한식', icon: '🍚' },
-  { id: 2, name: '일식', icon: '🍣' },
-  { id: 3, name: '중식', icon: '🥟' },
-  { id: 4, name: '양식', icon: '🍝' },
-  { id: 5, name: '카페', icon: '☕' },
-  { id: 6, name: '베이커리', icon: '🥐' },
-  { id: 7, name: '바/펍', icon: '🍷' },
-  { id: 8, name: '뷔페', icon: '🍽️' },
-];
+import { Store, Review, Coupon } from '@/types/store';
 
 export const mockStores: Store[] = [
   {
@@ -39,20 +28,6 @@ export const mockStores: Store[] = [
     lng: 126.9978,
   },
   {
-    id: 3,
-    name: '피자 플레이스',
-    category: '양식',
-    address: '서울 마포구 연남동',
-    rating: 4.5,
-    reviewCount: 198,
-    imageUrl: '',
-    openTime: '11:30',
-    closeTime: '21:30',
-    lat: 37.5596,
-    lng: 126.9239,
-    isClosed: true,
-  },
-  {
     id: 4,
     name: '라멘 이찌',
     category: '일식',
@@ -66,20 +41,6 @@ export const mockStores: Store[] = [
     lng: 127.0213,
   },
   {
-    id: 5,
-    name: '북경반점',
-    category: '중식',
-    address: '서울 중구 을지로',
-    rating: 4.3,
-    reviewCount: 156,
-    imageUrl: '',
-    openTime: '10:30',
-    closeTime: '21:30',
-    lat: 37.566,
-    lng: 126.9921,
-    isClosed: true,
-  },
-  {
     id: 6,
     name: '카페 온도',
     category: '카페',
@@ -91,74 +52,6 @@ export const mockStores: Store[] = [
     closeTime: '22:00',
     lat: 37.5447,
     lng: 127.0557,
-  },
-];
-
-// 매장별 마감된 날짜 (오늘 기준 offset일 후)
-export const mockFullyBookedDays: Record<number, number[]> = {
-  1: [1, 3, 5],
-  2: [0, 2, 4],
-  3: [2, 6],
-  4: [1, 4],
-  5: [3, 5],
-  6: [0, 3],
-};
-
-export const mockReservations: Reservation[] = [
-  {
-    id: 1,
-    storeId: 1,
-    storeName: '스시 소라',
-    storeCategory: '일식',
-    date: '2026-04-20',
-    time: '18:00',
-    guestCount: 2,
-    status: 'CONFIRMED',
-    createdAt: '2026-04-18T10:30:00',
-  },
-  {
-    id: 2,
-    storeId: 4,
-    storeName: '라멘 이찌',
-    storeCategory: '일식',
-    date: '2026-04-22',
-    time: '12:00',
-    guestCount: 4,
-    status: 'CONFIRMED',
-    createdAt: '2026-04-17T14:00:00',
-  },
-  {
-    id: 3,
-    storeId: 2,
-    storeName: '모수 서울',
-    storeCategory: '한식',
-    date: '2026-04-10',
-    time: '19:00',
-    guestCount: 2,
-    status: 'VISITED',
-    createdAt: '2026-04-05T09:00:00',
-  },
-  {
-    id: 4,
-    storeId: 6,
-    storeName: '카페 온도',
-    storeCategory: '카페',
-    date: '2026-04-08',
-    time: '14:00',
-    guestCount: 3,
-    status: 'CANCELED',
-    createdAt: '2026-04-03T16:20:00',
-  },
-  {
-    id: 5,
-    storeId: 1,
-    storeName: '스시 소라',
-    storeCategory: '일식',
-    date: '2026-03-25',
-    time: '18:00',
-    guestCount: 2,
-    status: 'NOSHOW',
-    createdAt: '2026-03-20T11:00:00',
   },
 ];
 
@@ -196,158 +89,3 @@ export const mockCoupons: Coupon[] = [
     expiresAt: '2026-04-15',
   },
 ];
-
-export const mockBookmarkFolders: BookmarkFolder[] = [
-  {
-    id: 1,
-    name: '기본 폴더',
-    type: 'DEFAULT',
-    color: '#f97316',
-    storeIds: [1, 6],
-  },
-  {
-    id: 2,
-    name: '데이트 맛집',
-    type: 'CUSTOM',
-    color: '#ec4899',
-    storeIds: [2, 4],
-  },
-  {
-    id: 3,
-    name: 'Slack 공유',
-    type: 'SLACK',
-    color: '#3b82f6',
-    storeIds: [3, 5],
-  },
-];
-
-export const mockNotifications: Notification[] = [
-  {
-    id: 1,
-    type: 'RESERVATION_CONFIRMED',
-    title: '예약이 확정되었습니다',
-    message: '4월 20일 (월) 18:00, 2명 예약이 확정되었습니다.',
-    storeId: 1,
-    storeName: '스시 소라',
-    isRead: false,
-    createdAt: '2026-04-18T10:30:00',
-  },
-  {
-    id: 2,
-    type: 'VACANCY',
-    title: '빈자리가 발생했습니다!',
-    message: '4월 19일 (토) 19:00에 빈자리가 생겼습니다. 지금 바로 예약하세요!',
-    storeId: 2,
-    storeName: '모수 서울',
-    isRead: false,
-    createdAt: '2026-04-18T09:15:00',
-  },
-  {
-    id: 3,
-    type: 'RESERVATION_REMIND',
-    title: '예약 리마인드',
-    message: '내일 12:00 예약이 있습니다. 방문 시간을 확인해주세요.',
-    storeId: 4,
-    storeName: '라멘 이찌',
-    isRead: true,
-    createdAt: '2026-04-17T18:00:00',
-  },
-  {
-    id: 4,
-    type: 'RESERVATION_CONFIRMED',
-    title: '예약이 확정되었습니다',
-    message: '4월 22일 (수) 12:00, 4명 예약이 확정되었습니다.',
-    storeId: 4,
-    storeName: '라멘 이찌',
-    isRead: true,
-    createdAt: '2026-04-17T14:00:00',
-  },
-  {
-    id: 5,
-    type: 'VACANCY',
-    title: '빈자리가 발생했습니다!',
-    message: '4월 21일 (월) 18:00에 빈자리가 생겼습니다. 지금 바로 예약하세요!',
-    storeId: 1,
-    storeName: '스시 소라',
-    isRead: true,
-    createdAt: '2026-04-16T11:30:00',
-  },
-];
-
-export const mockVacancySubscriptions: VacancySubscription[] = [
-  {
-    id: 1,
-    storeId: 2,
-    storeName: '모수 서울',
-    storeCategory: '한식',
-    date: '2026-04-20',
-    time: '19:00',
-    createdAt: '2026-04-18T12:00:00',
-  },
-  {
-    id: 2,
-    storeId: 1,
-    storeName: '스시 소라',
-    storeCategory: '일식',
-    date: '2026-04-21',
-    time: '18:00',
-    createdAt: '2026-04-18T14:00:00',
-  },
-];
-
-export const mockStoreReviews: Record<number, StoreReview[]> = {
-  1: [
-    {
-      id: 101,
-      storeId: 1,
-      userName: '미식가A',
-      rating: 5,
-      content: '오마카세 코스가 정말 훌륭했어요. 재료가 신선하고 셰프의 정성이 느껴졌습니다.',
-      createdAt: '2026-04-15T10:00:00',
-    },
-    {
-      id: 102,
-      storeId: 1,
-      userName: '맛집탐험',
-      rating: 4,
-      content: '분위기가 좋고 음식도 맛있었지만 대기 시간이 조금 길었어요.',
-      createdAt: '2026-04-10T15:30:00',
-    },
-  ],
-  2: [
-    {
-      id: 103,
-      storeId: 2,
-      userName: '한식러버',
-      rating: 5,
-      content: '한우 코스 최고! 고기 퀄리티가 다릅니다. 특별한 날에 꼭 다시 오고 싶어요.',
-      createdAt: '2026-04-12T11:00:00',
-    },
-    {
-      id: 104,
-      storeId: 2,
-      userName: '용산주민',
-      rating: 5,
-      content: '제철 코스도 정말 좋았어요. 계절마다 방문하고 싶은 곳.',
-      createdAt: '2026-04-08T18:00:00',
-    },
-    {
-      id: 105,
-      storeId: 2,
-      userName: '데이트맛집',
-      rating: 4,
-      content: '분위기 좋고 서비스도 친절합니다. 다만 예약이 쉽지 않아요.',
-      createdAt: '2026-04-05T20:00:00',
-    },
-  ],
-  4: [
-    {
-      id: 106,
-      storeId: 4,
-      userName: '라멘마니아',
-      rating: 4,
-      content: '돈코츠 라멘의 육수가 진하고 면 식감이 좋습니다.',
-      createdAt: '2026-04-14T12:30:00',
-    },
-  ],
-};
