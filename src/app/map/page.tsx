@@ -34,7 +34,6 @@ import type { StoreSummary } from '@/types/store';
 interface MarkerEntry {
   store: StoreSummary;
   marker: kakao.maps.Marker;
-  infoWindow: kakao.maps.InfoWindow;
 }
 
 function MapContent() {
@@ -43,7 +42,6 @@ function MapContent() {
   const markersRef = useRef<MarkerEntry[]>([]);
   // 줌 레벨이 일정 이상일 때 가까운 마커들을 자동으로 묶어주는 카카오맵 내장 클러스터러
   const clustererRef = useRef<kakao.maps.MarkerClusterer | null>(null);
-  const openInfoWindowRef = useRef<kakao.maps.InfoWindow | null>(null);
   /**
    * 사용자가 매장 위치로 명시적으로 점프했을 때(즐겨찾기 시트 클릭 등)
    * 다음 idle에서는 버튼 없이 즉시 재검색하도록 신호하는 플래그.
@@ -177,7 +175,6 @@ function MapContent() {
       markersRef.current.forEach(({ marker }) => marker.setMap(null));
     }
     markersRef.current = [];
-    openInfoWindowRef.current = null;
   }, []);
 
   const markerImageCache = useRef<Map<string, kakao.maps.MarkerImage>>(new Map());
@@ -242,14 +239,12 @@ function MapContent() {
           ...(markerImage && { image: markerImage }),
         });
 
-        // InfoWindow는 더 이상 사용하지 않지만 markersRef 인터페이스 호환을 위해 더미 객체.
-        const dummyInfoWindow = new kakao.maps.InfoWindow({ content: '' });
-
-        markersRef.current.push({ store, marker, infoWindow: dummyInfoWindow });
+        markersRef.current.push({ store, marker });
         newMarkers.push(marker);
 
-        // 마커 클릭 → React 카드로 매장 정보 표시 (InfoWindow 대신)
+        // 마커 클릭 → 클릭한 매장을 지도 중앙으로 이동 + React 카드로 매장 정보 표시
         kakao.maps.event.addListener(marker, 'click', () => {
+          map.panTo(new kakao.maps.LatLng(store.latitude, store.longitude));
           setFocusedStore({
             storeId: store.storeId,
             storeName: store.storeName,
@@ -478,10 +473,6 @@ function MapContent() {
       );
       map.setCenter(position);
       map.setLevel(3);
-
-      if (openInfoWindowRef.current) openInfoWindowRef.current.close();
-      found.infoWindow.open(map, found.marker);
-      openInfoWindowRef.current = found.infoWindow;
     }
   };
 

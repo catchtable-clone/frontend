@@ -148,11 +148,10 @@ export default function ReservationsPage() {
 
   const [tab, setTab] = useState<'upcoming' | 'visited' | 'canceled' | 'vacancy'>('upcoming');
 
-  // FIXME: 실제 유저 연동 시 AuthStore에서 가져온 userId로 교체합니다.
-  const userId = 1;
-  const { data: reservations = [], isLoading } = useReservationsQuery(userId);
+  const userId = useAuthStore((s) => s.userId) ?? 0;
+  const { data: reservations = [], isLoading } = useReservationsQuery();
   const { mutate: cancelReservation } = useCancelReservationMutation();
-  const { data: vacancies = [], isLoading: isVacancyLoading } = useMyVacanciesQuery(userId);
+  const { data: vacancies = [], isLoading: isVacancyLoading } = useMyVacanciesQuery();
   const { mutate: cancelVacancy } = useCancelVacancyMutation();
   const [cancelTarget, setCancelTarget] = useState<number | null>(null);
   const [vacancyCancelTarget, setVacancyCancelTarget] = useState<number | null>(null);
@@ -182,16 +181,13 @@ export default function ReservationsPage() {
 
   const confirmCancel = () => {
     if (cancelTarget === null) return;
-    cancelReservation(
-      { reservationId: cancelTarget, userId },
-      {
-        onSuccess: () => setCancelTarget(null),
-        onError: (error) => {
-          console.error('예약 취소 실패:', error);
-          alert('예약 취소 중 오류가 발생했습니다.');
-        },
-      }
-    );
+    cancelReservation(cancelTarget, {
+      onSuccess: () => setCancelTarget(null),
+      onError: (error) => {
+        console.error('예약 취소 실패:', error);
+        alert('예약 취소 중 오류가 발생했습니다.');
+      },
+    });
   };
 
   const openReviewModal = (reservation: Reservation) => {
@@ -434,16 +430,13 @@ export default function ReservationsPage() {
           confirmLabel="취소하기"
           onConfirm={() => {
             if (vacancyCancelTarget) {
-              cancelVacancy(
-                { vacancyId: vacancyCancelTarget, userId },
-                {
-                  onSuccess: () => setVacancyCancelTarget(null),
-                  onError: (error: any) => {
-                    alert(error?.response?.data?.message || '알림 취소 중 오류가 발생했습니다.');
-                    setVacancyCancelTarget(null);
-                  }
-                }
-              );
+              cancelVacancy(vacancyCancelTarget, {
+                onSuccess: () => setVacancyCancelTarget(null),
+                onError: (error: any) => {
+                  alert(error?.response?.data?.message || '알림 취소 중 오류가 발생했습니다.');
+                  setVacancyCancelTarget(null);
+                },
+              });
             }
           }}
           onCancel={() => setVacancyCancelTarget(null)}

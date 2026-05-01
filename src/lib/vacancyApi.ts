@@ -12,13 +12,13 @@ export interface VacancyResponse {
   createdAt: string;
 }
 
-export const createVacancy = async (userId: number, remainId: number): Promise<number> => {
-  const response = await api.post('/vacancy', { userId, remainId });
+export const createVacancy = async (remainId: number): Promise<number> => {
+  const response = await api.post('/vacancy', { remainId });
   return unwrap<{ vacancyId: number }>(response, { vacancyId: 0 }).vacancyId;
 };
 
-export const getMyVacancies = async (userId: number): Promise<VacancyResponse[]> => {
-  const response = await api.get('/vacancy/me', { params: { userId } });
+export const getMyVacancies = async (): Promise<VacancyResponse[]> => {
+  const response = await api.get('/vacancy/me');
   return unwrap<VacancyResponse[]>(response, []);
 };
 

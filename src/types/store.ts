@@ -100,7 +100,13 @@ export interface StoreSummary {
  * 백엔드 ReservationStatus enum과 1:1 매칭.
  * 주의: 백엔드는 'CANCELED' (single L). 프론트도 동일하게 사용한다.
  */
-export type ReservationStatus = 'PENDING' | 'CONFIRMED' | 'VISITED' | 'CANCELED' | 'NOSHOW';
+export type ReservationStatus =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'VISITED'
+  | 'CANCELED'
+  | 'NOSHOW'
+  | 'REPLACED'; // 변경으로 대체된 예약 (취소 탭에 노출되지 않음)
 
 export interface Reservation {
   id: number;
@@ -172,11 +178,14 @@ export interface CouponReadResponseDto {
 }
 
 // === 알림 ===
-// 백엔드 NotificationType enum 매칭. 단, 프론트는 RESERVATION_REMIND(백엔드 REMINDER) 사용 중 — 정리 필요
+// 백엔드 NotificationType enum 매칭
 export type NotificationType =
+  | 'VACANCY'
   | 'RESERVATION_CONFIRMED'
-  | 'RESERVATION_REMIND'
-  | 'VACANCY';
+  | 'RESERVATION_CANCELED'
+  | 'RESERVATION_CHANGED'
+  | 'RESERVATION_VISITED'
+  | 'RESERVATION_REMINDER';
 
 export interface Notification {
   notificationId: number;
@@ -184,8 +193,8 @@ export interface Notification {
   title: string;
   content: string;
   relatedItemId?: number;
-  read: boolean;
   storeName?: string;
+  read: boolean;
   createdAt: string;
 }
 
@@ -197,18 +206,3 @@ export interface ChatMessage {
   createdAt: string;
 }
 
-// === 레거시 mock data 호환용 타입 (mockData.ts에서만 사용) ===
-export interface Store {
-  id: number;
-  name: string;
-  category: string;
-  address: string;
-  rating: number;
-  reviewCount: number;
-  imageUrl: string;
-  openTime: string;
-  closeTime: string;
-  lat: number;
-  lng: number;
-  isClosed?: boolean;
-}

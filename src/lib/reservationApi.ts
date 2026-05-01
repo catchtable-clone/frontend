@@ -9,11 +9,13 @@ export interface ReservationRequest {
   time: string;
   guestCount: number;
   remainId: number;
+  couponId?: number;
 }
 
 export interface ReservationUpdateRequest {
   remainId: number;
   guestCount: number;
+  couponId?: number;
 }
 
 /**
@@ -37,17 +39,11 @@ interface ReservationApiResponse {
   createdAt: string;
 }
 
-/**
- * 새로운 예약을 생성하는 API 함수
- */
 export const createReservation = async (data: ReservationRequest): Promise<Reservation> => {
   const payload = {
-    storeId: data.storeId,
-    date: data.date,
-    time: data.time,
-    member: data.guestCount, // 백엔드 member 파라미터 매핑
-    userId: 1,               // FIXME: 실제 로그인된 유저 ID (별도 작업 — Critical 항목 1번)
     remainId: data.remainId,
+    member: data.guestCount,
+    couponId: data.couponId,
   };
   const response = await api.post('/reservations', payload);
   return unwrap<Reservation>(response, {} as Reservation);
@@ -57,8 +53,8 @@ export const createReservation = async (data: ReservationRequest): Promise<Reser
  * 내 예약 내역 목록 조회.
  * 백엔드 status는 lowercase("pending"...)로 내려오므로 프론트 enum(uppercase)로 정규화한다.
  */
-export const getReservations = async (userId: number): Promise<Reservation[]> => {
-  const response = await api.get('/reservations/me', { params: { userId } });
+export const getReservations = async (): Promise<Reservation[]> => {
+  const response = await api.get('/reservations/me');
   const rawData = unwrap<ReservationApiResponse[]>(response, []);
 
   return rawData.map((item) => ({
@@ -73,27 +69,19 @@ export const getReservations = async (userId: number): Promise<Reservation[]> =>
   }));
 };
 
-/**
- * 예약 취소
- */
-export const cancelReservation = async (reservationId: number, userId: number): Promise<void> => {
-  await api.delete(`/reservations/${reservationId}`, { params: { userId } });
+export const cancelReservation = async (reservationId: number): Promise<void> => {
+  await api.delete(`/reservations/${reservationId}`);
 };
 
-/**
- * 예약 변경
- */
 export const updateReservation = async (
   reservationId: number,
-  userId: number,
   data: ReservationUpdateRequest,
 ): Promise<Reservation> => {
   const payload = {
     newRemainId: data.remainId,
     newMember: data.guestCount,
+    couponId: data.couponId,
   };
-  const response = await api.patch(`/reservations/${reservationId}`, payload, {
-    params: { userId },
-  });
+  const response = await api.patch(`/reservations/${reservationId}`, payload);
   return unwrap<Reservation>(response, {} as Reservation);
 };

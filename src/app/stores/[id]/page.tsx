@@ -476,18 +476,15 @@ export default function StoreDetail() {
             <button
               onClick={() => {
                 if (selectedTimeIsFull) {
-                  createVacancy(
-                    { userId: 1, remainId: selectedRemainId! }, // FIXME: Auth 연동 시 교체
-                    {
-                      onSuccess: () => {
-                        alert('빈자리 알림이 등록되었습니다.');
-                        setShowTimeModal(false);
-                      },
-                      onError: (error: any) => {
-                        alert(error?.response?.data?.message || '빈자리 알림 등록 중 오류가 발생했습니다.');
-                      }
-                    }
-                  );
+                  createVacancy(selectedRemainId!, {
+                    onSuccess: () => {
+                      alert('빈자리 알림이 등록되었습니다.');
+                      setShowTimeModal(false);
+                    },
+                    onError: (error: any) => {
+                      alert(error?.response?.data?.message || '빈자리 알림 등록 중 오류가 발생했습니다.');
+                    },
+                  });
                 } else {
                   handleConfirmReservation();
                 }
