@@ -9,13 +9,15 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import StarRating from '@/components/common/StarRating';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { useAuthStore } from '@/stores/authStore';
-import { useMyReviewsQuery } from '@/lib/reviewQuery';
+import { useMyReviewsQuery, useDeleteReviewMutation } from '@/lib/reviewQuery';
 import { formatDateDot } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 export default function MyReviewsPage() {
   const router = useRouter();
   const userId = useAuthStore((s) => s.userId);
-  const { data: reviews = [], isLoading } = useMyReviewsQuery(userId ?? 0);
+  const { data: reviews = [], isLoading } = useMyReviewsQuery();
+  const deleteMutation = useDeleteReviewMutation();
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const handleDelete = (id: number) => {
@@ -23,9 +25,14 @@ export default function MyReviewsPage() {
   };
 
   const confirmDelete = () => {
-    if (deleteTarget === null) return;
-    // TODO: 백엔드 리뷰 삭제 API 연동
-    setDeleteTarget(null);
+    if (deleteTarget === null || !userId) return;
+    deleteMutation.mutate(deleteTarget, {
+      onSuccess: () => {
+        toast.success('리뷰가 삭제되었습니다.');
+        setDeleteTarget(null);
+      },
+      onError: () => setDeleteTarget(null),
+    });
   };
 
   if (isLoading) {

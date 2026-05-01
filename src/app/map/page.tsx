@@ -244,7 +244,10 @@ function MapContent() {
 
         // 마커 클릭 → 클릭한 매장을 지도 중앙으로 이동 + React 카드로 매장 정보 표시
         kakao.maps.event.addListener(marker, 'click', () => {
-          map.panTo(new kakao.maps.LatLng(store.latitude, store.longitude));
+          // panTo는 카카오맵 SDK에 존재하지만 일부 타입 정의에 누락됨
+          (map as unknown as { panTo: (latlng: kakao.maps.LatLng) => void }).panTo(
+            new kakao.maps.LatLng(store.latitude, store.longitude),
+          );
           setFocusedStore({
             storeId: store.storeId,
             storeName: store.storeName,
@@ -387,10 +390,8 @@ function MapContent() {
   };
 
   const handleRemoveStore = (bookmarkId: number) => {
-    removeBookmark(bookmarkId, {
-      onError: (err: any) =>
-        alert(err?.response?.data?.message || '북마크 삭제 중 오류가 발생했습니다.'),
-    });
+    removeBookmark(bookmarkId);
+    // 에러 토스트는 axios 인터셉터가 처리
   };
 
   const handleDeleteFolder = (folderId: number) => {
@@ -401,8 +402,6 @@ function MapContent() {
           setSelectedFolderId(remaining[0]?.folderId ?? null);
         }
       },
-      onError: (err: any) =>
-        alert(err?.response?.data?.message || '폴더 삭제 중 오류가 발생했습니다.'),
     });
   };
 
@@ -411,8 +410,6 @@ function MapContent() {
       { folderName: name, color },
       {
         onSuccess: (res) => setSelectedFolderId(res.folderId),
-        onError: (err: any) =>
-          alert(err?.response?.data?.message || '폴더 생성 중 오류가 발생했습니다.'),
       },
     );
     setShowAddFolder(false);
@@ -420,13 +417,7 @@ function MapContent() {
 
   const handleEditFolder = (name: string, color: string) => {
     if (!editFolder) return;
-    updateFolder(
-      { folderId: editFolder.id, folderName: name, color },
-      {
-        onError: (err: any) =>
-          alert(err?.response?.data?.message || '폴더 수정 중 오류가 발생했습니다.'),
-      },
-    );
+    updateFolder({ folderId: editFolder.id, folderName: name, color });
     setEditFolder(null);
   };
 

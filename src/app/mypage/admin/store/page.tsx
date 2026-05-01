@@ -9,6 +9,7 @@ import { useMeQuery } from '@/lib/userQuery';
 import { createStore, updateStore, StoreCreateRequest } from '@/lib/storeApi';
 import { uploadFile } from '@/lib/fileApi';
 import { STORE_CATEGORIES, STORE_DISTRICTS } from '@/lib/storeEnum';
+import toast from 'react-hot-toast';
 
 export default function AdminStoreCreatePage() {
   const router = useRouter();
@@ -71,7 +72,7 @@ export default function AdminStoreCreatePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.storeName.trim() || !form.address.trim()) {
-      alert('매장명과 주소는 필수입니다.');
+      toast.error('매장명과 주소는 필수입니다.');
       return;
     }
     try {
@@ -89,10 +90,10 @@ export default function AdminStoreCreatePage() {
         await updateStore(storeId, { ...form, storeImage: storeImageUrl });
       }
 
-      alert(`매장이 등록되었습니다. (ID: ${storeId})`);
+      toast.success(`매장이 등록되었습니다. (ID: ${storeId})`);
       router.push(`/stores/${storeId}`);
-    } catch (err: any) {
-      alert(err?.response?.data?.message || '매장 등록 실패');
+    } catch {
+      // 에러 토스트는 axios 인터셉터가 처리
     } finally {
       setSubmitting(false);
     }

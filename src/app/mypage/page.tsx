@@ -96,6 +96,13 @@ export default function MyPage() {
                   <UtensilsCrossed size={20} className="text-orange-400" />
                   메뉴 등록
                 </button>
+                <button
+                  onClick={() => router.push('/mypage/admin/coupon')}
+                  className="flex items-center gap-3 border-b border-gray-100 px-2 py-4 text-sm text-gray-700"
+                >
+                  <Ticket size={20} className="text-orange-400" />
+                  쿠폰 템플릿 생성
+                </button>
               </div>
             )}
 

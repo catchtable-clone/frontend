@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Mail,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Header from '@/components/common/Header';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import CenteredModal from '@/components/common/CenteredModal';
@@ -90,7 +91,7 @@ function ReservationContent() {
 
   const handleConfirm = () => {
     if (!userId) {
-      alert('로그인이 필요합니다.');
+      toast.error('로그인이 필요합니다.');
       return;
     }
     if (isChange && changeFrom) {
@@ -101,10 +102,7 @@ function ReservationContent() {
         },
         {
           onSuccess: () => setShowSuccess(true),
-          onError: (error) => {
-            console.error('예약 변경 실패:', error);
-            alert('예약 변경 중 오류가 발생했습니다.');
-          },
+          // 에러는 axios 인터셉터가 토스트로 처리
         }
       );
     } else {
@@ -112,10 +110,6 @@ function ReservationContent() {
         { storeId, date, time, guestCount, remainId, couponId: selectedCoupon?.id },
         {
           onSuccess: () => setShowSuccess(true),
-          onError: (error) => {
-            console.error('예약 실패:', error);
-            alert('예약 요청 중 오류가 발생했습니다.');
-          },
         }
       );
     }

@@ -22,8 +22,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      // TODO: 인증 구현 후 null로 변경. 백엔드 시드 user1@test.com (USER) 임시 사용
-      userId: 2,
+      userId: null,
       accessToken: null,
       user: null,
       setAuth: (token, userId) => set({ accessToken: token, userId }),
@@ -33,8 +32,12 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      // userId는 persist 제외 (임시값이 localStorage에 영구 저장되는 사고 방지)
-      partialize: (state) => ({ accessToken: state.accessToken }),
+      // userId까지 persist — 새로고침해도 로그인 상태(특히 admin) 유지
+      // (기본값을 null로 두므로 명시적 setAuth 호출 없이는 임의 user로 자동 식별되지 않음)
+      partialize: (state) => ({
+        accessToken: state.accessToken,
+        userId: state.userId,
+      }),
     },
   ),
 );

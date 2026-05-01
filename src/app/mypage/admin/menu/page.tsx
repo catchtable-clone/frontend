@@ -11,6 +11,7 @@ import { createMenus, MenuItemRequest } from '@/lib/storeApi';
 import { uploadFile } from '@/lib/fileApi';
 import { toCategoryLabel } from '@/lib/storeEnum';
 import type { StoreSummary } from '@/types/store';
+import toast from 'react-hot-toast';
 
 interface MenuFormItem extends MenuItemRequest {
   uploading?: boolean;
@@ -82,7 +83,7 @@ export default function AdminMenuCreatePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!selectedStore) {
-      alert('매장을 먼저 선택해 주세요.');
+      toast.error('매장을 먼저 선택해 주세요.');
       return;
     }
     try {
@@ -90,21 +91,21 @@ export default function AdminMenuCreatePage() {
       // Option B: stores/{storeId}/menus 하위로 업로드
       const url = await uploadFile(file, 'menu', selectedStore.storeId);
       updateMenu(index, { menuImage: url, uploading: false });
-    } catch (err: any) {
+    } catch {
       updateMenu(index, { uploading: false });
-      alert(err?.response?.data?.message || '이미지 업로드 실패');
+      // 에러 토스트는 axios 인터셉터가 처리
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStore) {
-      alert('매장을 선택해 주세요.');
+      toast.error('매장을 선택해 주세요.');
       return;
     }
     const validMenus = menus.filter((m) => m.menuName.trim() && m.price > 0);
     if (validMenus.length === 0) {
-      alert('최소 1개 이상의 메뉴를 입력해 주세요. (메뉴명·가격 필수)');
+      toast.error('최소 1개 이상의 메뉴를 입력해 주세요. (메뉴명·가격 필수)');
       return;
     }
     try {
@@ -116,10 +117,10 @@ export default function AdminMenuCreatePage() {
         menuImage: m.menuImage || undefined,
       }));
       const result = await createMenus(selectedStore.storeId, payload);
-      alert(`메뉴 ${result.menuId.length}개가 등록되었습니다.`);
+      toast.success(`메뉴 ${result.menuId.length}개가 등록되었습니다.`);
       router.push(`/stores/${selectedStore.storeId}`);
-    } catch (err: any) {
-      alert(err?.response?.data?.message || '메뉴 등록 실패');
+    } catch {
+      // 에러 토스트는 axios 인터셉터가 처리
     } finally {
       setSubmitting(false);
     }

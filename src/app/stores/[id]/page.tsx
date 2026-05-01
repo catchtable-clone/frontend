@@ -22,6 +22,7 @@ import {
 } from '@/lib/bookmarkQuery';
 import { useBookmarkedFolderForStore } from '@/hooks/useBookmarkedFolderForStore';
 import { useAuthStore } from '@/stores/authStore';
+import toast from 'react-hot-toast';
 function getNextDays(count: number) {
   const days = [];
   const today = new Date();
@@ -166,7 +167,7 @@ export default function StoreDetail() {
             <button
               onClick={() => {
                 if (!accessToken) {
-                  alert('로그인이 필요합니다.');
+                  toast.error('로그인이 필요합니다.');
                   return;
                 }
                 // 폴더 시트에서 추가/이동/제거를 통합 관리
@@ -478,12 +479,10 @@ export default function StoreDetail() {
                 if (selectedTimeIsFull) {
                   createVacancy(selectedRemainId!, {
                     onSuccess: () => {
-                      alert('빈자리 알림이 등록되었습니다.');
+                      toast.success('빈자리 알림이 등록되었습니다.');
                       setShowTimeModal(false);
                     },
-                    onError: (error: any) => {
-                      alert(error?.response?.data?.message || '빈자리 알림 등록 중 오류가 발생했습니다.');
-                    },
+                    // 에러는 axios 인터셉터가 토스트로 처리
                   });
                 } else {
                   handleConfirmReservation();
@@ -554,14 +553,7 @@ export default function StoreDetail() {
               <button
                 onClick={() => {
                   if (selectedFolderId && store) {
-                    addBookmark(
-                      { folderId: selectedFolderId, storeId: store.storeId },
-                      {
-                        onError: (err: any) => {
-                          alert(err?.response?.data?.message || '북마크 추가 중 오류가 발생했습니다.');
-                        },
-                      },
-                    );
+                    addBookmark({ folderId: selectedFolderId, storeId: store.storeId });
                   }
                   setShowFolderSheet(false);
                   setSelectedFolderId(null);
@@ -597,9 +589,6 @@ export default function StoreDetail() {
               { folderName: name, color },
               {
                 onSuccess: (res) => setSelectedFolderId(res.folderId),
-                onError: (err: any) => {
-                  alert(err?.response?.data?.message || '폴더 생성 중 오류가 발생했습니다.');
-                },
               },
             );
             setShowNewFolder(false);
