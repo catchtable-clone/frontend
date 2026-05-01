@@ -195,17 +195,6 @@ function MapContent() {
     return image;
   }, []);
 
-  const buildInfoContent = useCallback(
-    (store: StoreSummary) => `<div style="padding:10px 14px;font-size:13px;line-height:1.6;white-space:nowrap;">
-        <strong>${store.storeName}</strong><br/>
-        <span style="color:#888;">${toCategoryLabel(store.category)} · ${store.address}</span><br/>
-        <span style="color:#f97316;font-size:12px;">★ ${store.averageStar.toFixed(1)}</span>
-        <span style="color:#aaa;font-size:11px;">(${store.reviewCount})</span><br/>
-        <a href="/stores/${store.storeId}" style="color:#f97316;font-size:12px;text-decoration:none;">상세보기 →</a>
-      </div>`,
-    [],
-  );
-
   // 폴더/북마크 변경 시 마커 색상 즉시 업데이트
   useEffect(() => {
     markersRef.current.forEach(({ store, marker }) => {
@@ -458,12 +447,17 @@ function MapContent() {
 
     if (found && mapInstanceRef.current) {
       const map = mapInstanceRef.current;
-      const position = new kakao.maps.LatLng(
-        found.store.latitude,
-        found.store.longitude,
-      );
+      const { store } = found;
+      const position = new kakao.maps.LatLng(store.latitude, store.longitude);
       map.setCenter(position);
       map.setLevel(3);
+      // 마커 클릭과 일관성 — 매장 정보 카드 표시
+      setFocusedStore({
+        storeId: store.storeId,
+        storeName: store.storeName,
+        category: store.category,
+        address: store.address,
+      });
     }
   };
 
