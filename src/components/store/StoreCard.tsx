@@ -1,30 +1,32 @@
 import Link from 'next/link';
-import { Star, Clock, Heart } from 'lucide-react';
-import { Store } from '@/types/store';
-import { mockBookmarkFolders } from '@/lib/mockData';
+import { Heart, Star } from 'lucide-react';
+import { StoreSummary } from '@/types/store';
+import { useBookmarkedFolderForStore } from '@/hooks/useBookmarkedFolderForStore';
+import { toCategoryLabel } from '@/lib/storeEnum';
 
 interface StoreCardProps {
-  store: Store;
+  store: StoreSummary;
 }
 
 export default function StoreCard({ store }: StoreCardProps) {
-  const isClosed = store.isClosed ?? false;
-  const folder = mockBookmarkFolders.find((f) =>
-    f.storeIds.includes(store.id),
-  );
+  // 로그인한 사용자의 북마크 폴더에 이 매장이 속해 있다면 해당 폴더를 반환.
+  const folder = useBookmarkedFolderForStore(store.storeId);
 
   return (
     <Link
-      href={`/stores/${store.id}`}
-      className={`flex gap-4 border-b border-gray-100 py-4 ${isClosed ? 'opacity-50' : ''}`}
+      href={`/stores/${store.storeId}`}
+      className="flex gap-4 border-b border-gray-100 py-4"
     >
       {/* 매장 이미지 */}
-      <div className="relative h-20 w-20 flex-shrink-0 rounded-lg bg-gray-200">
-        {isClosed && (
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-gray-700 px-2 py-0.5 text-[10px] font-semibold text-white">
-            휴업중
-          </span>
-        )}
+      <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200">
+        <img
+          src={store.storeImage || '/images/ready_image.png'}
+          alt={store.storeName}
+          className="h-full w-full object-cover"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = '/images/ready_image.png';
+          }}
+        />
         {folder && (
           <Heart
             size={14}
@@ -36,20 +38,14 @@ export default function StoreCard({ store }: StoreCardProps) {
 
       {/* 매장 정보 */}
       <div className="flex flex-1 flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">{store.category}</span>
-        </div>
-        <h3 className="text-sm font-semibold text-gray-900">{store.name}</h3>
+        <span className="text-xs text-gray-400">{toCategoryLabel(store.category)}</span>
+        <h3 className="text-sm font-semibold text-gray-900">{store.storeName}</h3>
         <p className="text-xs text-gray-500">{store.address}</p>
-        <div className="flex items-center gap-3 text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            <Star size={12} className="fill-orange-400 text-orange-400" />
-            {store.rating}
-          </span>
-          <span className="flex items-center gap-1">
-            <Clock size={12} />
-            {isClosed ? '휴업중' : `${store.openTime} - ${store.closeTime}`}
-          </span>
+        <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+          <Star size={11} className="fill-orange-400 text-orange-400" />
+          <span>{store.averageStar.toFixed(1)}</span>
+          <span className="text-gray-300">·</span>
+          <span>리뷰 {store.reviewCount}</span>
         </div>
       </div>
     </Link>

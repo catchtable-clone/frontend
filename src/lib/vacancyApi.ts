@@ -1,4 +1,5 @@
 import api from '@/lib/axios';
+import { unwrap } from '@/lib/apiUtils';
 
 export interface VacancyResponse {
   vacancyId: number;
@@ -11,15 +12,14 @@ export interface VacancyResponse {
   createdAt: string;
 }
 
-export const createVacancy = async (userId: number, remainId: number): Promise<number> => {
-  const response = await api.post('/vacancy', { userId, remainId });
-  return response.data.data?.vacancyId;
+export const createVacancy = async (remainId: number): Promise<number> => {
+  const response = await api.post('/vacancy', { remainId });
+  return unwrap<{ vacancyId: number }>(response, { vacancyId: 0 }).vacancyId;
 };
 
-export const getMyVacancies = async (userId: number): Promise<VacancyResponse[]> => {
-  const response = await api.get('/vacancy/me', { params: { userId } });
-  const rawData = response.data.data || response.data.result || response.data || [];
-  return rawData as VacancyResponse[];
+export const getMyVacancies = async (): Promise<VacancyResponse[]> => {
+  const response = await api.get('/vacancy/me');
+  return unwrap<VacancyResponse[]>(response, []);
 };
 
 export const cancelVacancy = async (vacancyId: number): Promise<void> => {

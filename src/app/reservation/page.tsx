@@ -14,19 +14,23 @@ import {
   CheckCircle,
   Mail,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Header from '@/components/common/Header';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import CenteredModal from '@/components/common/CenteredModal';
 import BottomSheet from '@/components/common/BottomSheet';
-import { mockCoupons } from '@/lib/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { getMyCoupons } from '@/lib/api/coupons';
 import { formatDate } from '@/lib/utils';
 import { useCreateReservationMutation, useUpdateReservationMutation } from '@/lib/reservationQuery';
 import { useStoreDetailQuery } from '@/lib/storeQuery';
+import { useAuthStore } from '@/stores/authStore';
 import type { Coupon } from '@/types/store';
 
 function ReservationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const userId = useAuthStore((s) => s.userId);
 
   const storeId = Number(searchParams.get('storeId'));
   const date = searchParams.get('date') || '';
@@ -37,7 +41,12 @@ function ReservationContent() {
 
   const { data: store, isLoading: isStoreLoading } = useStoreDetailQuery(String(storeId));
 
-  const availableCoupons = mockCoupons.filter((c) => c.status === 'AVAILABLE');
+  const { data: myCoupons = [] } = useQuery({
+    queryKey: ['myCoupons', userId],
+    queryFn: getMyCoupons,
+    enabled: !!userId,
+  });
+  const availableCoupons = myCoupons.filter((c) => c.status === 'AVAILABLE');
 
   const { mutate: createReservation, isPending } = useCreateReservationMutation();
   const { mutate: updateReservation, isPending: isUpdatePending } = useUpdateReservationMutation();
@@ -81,30 +90,26 @@ function ReservationContent() {
   }
 
   const handleConfirm = () => {
+    if (!userId) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
     if (isChange && changeFrom) {
       updateReservation(
         {
           reservationId: Number(changeFrom),
-          userId: 1, // FIXME: 실제 로그인된 유저 ID (추후 AuthStore에서 연동)
-          data: { remainId, guestCount }
+          data: { remainId, guestCount, couponId: selectedCoupon?.id },
         },
         {
           onSuccess: () => setShowSuccess(true),
-          onError: (error) => {
-            console.error('예약 변경 실패:', error);
-            alert('예약 변경 중 오류가 발생했습니다.');
-          },
+          // 에러는 axios 인터셉터가 토스트로 처리
         }
       );
     } else {
       createReservation(
-        { storeId, date, time, guestCount, remainId },
+        { storeId, date, time, guestCount, remainId, couponId: selectedCoupon?.id },
         {
           onSuccess: () => setShowSuccess(true),
-          onError: (error) => {
-            console.error('예약 실패:', error);
-            alert('예약 요청 중 오류가 발생했습니다.');
-          },
         }
       );
     }

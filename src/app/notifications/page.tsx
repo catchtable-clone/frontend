@@ -5,8 +5,11 @@ import { useRouter } from 'next/navigation';
 import {
   Bell,
   CalendarCheck,
+  CalendarX,
+  CheckCircle2,
   Clock,
   MapPin,
+  RefreshCw,
   CheckCheck,
   Loader2, // 로딩 스피너를 위해 추가
 } from 'lucide-react';
@@ -25,20 +28,35 @@ const TYPE_CONFIG: Record<
   NotificationType,
   { icon: typeof CalendarCheck; color: string; bg: string }
 > = {
+  VACANCY: {
+    icon: MapPin,
+    color: 'text-orange-600',
+    bg: 'bg-orange-50',
+  },
   RESERVATION_CONFIRMED: {
     icon: CalendarCheck,
     color: 'text-green-600',
     bg: 'bg-green-50',
   },
-  RESERVATION_REMIND: {
+  RESERVATION_CANCELED: {
+    icon: CalendarX,
+    color: 'text-red-600',
+    bg: 'bg-red-50',
+  },
+  RESERVATION_CHANGED: {
+    icon: RefreshCw,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50',
+  },
+  RESERVATION_VISITED: {
+    icon: CheckCircle2,
+    color: 'text-purple-600',
+    bg: 'bg-purple-50',
+  },
+  RESERVATION_REMINDER: {
     icon: Clock,
     color: 'text-blue-600',
     bg: 'bg-blue-50',
-  },
-  VACANCY: {
-    icon: MapPin,
-    color: 'text-orange-600',
-    bg: 'bg-orange-50',
   },
 };
 
@@ -86,9 +104,12 @@ export default function NotificationsPage() {
 
   const filters: { key: NotificationType | 'ALL'; label: string }[] = [
     { key: 'ALL', label: '전체' },
-    { key: 'RESERVATION_CONFIRMED', label: '예약 확정' },
-    { key: 'RESERVATION_REMIND', label: '리마인드' },
     { key: 'VACANCY', label: '빈자리' },
+    { key: 'RESERVATION_CONFIRMED', label: '예약 확정' },
+    { key: 'RESERVATION_CANCELED', label: '예약 취소' },
+    { key: 'RESERVATION_CHANGED', label: '예약 변경' },
+    { key: 'RESERVATION_VISITED', label: '방문 완료' },
+    { key: 'RESERVATION_REMINDER', label: '리마인드' },
   ];
 
   return (
@@ -97,8 +118,8 @@ export default function NotificationsPage() {
 
       <main className="flex-1">
         {/* 필터 + 모두 읽음 */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <div className="flex gap-2">
+        <div className="flex items-center gap-3 border-b border-gray-100 px-4 py-3">
+          <div className="scrollbar-hide flex flex-1 gap-2 overflow-x-auto whitespace-nowrap">
             {filters.map(({ key, label }) => (
               <FilterChip
                 key={key}
@@ -108,15 +129,14 @@ export default function NotificationsPage() {
               />
             ))}
           </div>
-          {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllAsRead}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-orange-500"
-            >
-              <CheckCheck size={14} />
-              모두 읽음
-            </button>
-          )}
+          <button
+            onClick={handleMarkAllAsRead}
+            disabled={unreadCount === 0}
+            className="flex flex-shrink-0 items-center gap-1 whitespace-nowrap text-xs text-gray-500 hover:text-orange-500 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:text-gray-300"
+          >
+            <CheckCheck size={14} />
+            모두 읽음
+          </button>
         </div>
 
         {/* 알림 목록 */}

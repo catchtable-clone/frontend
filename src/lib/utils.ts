@@ -1,4 +1,5 @@
-import type { Store } from '@/types/store';
+// filterStores는 호출 측의 매장 형태(StoreSummary 또는 map 페이지의 로컬 형태)와
+// 무관하게 작동하도록 제네릭으로 둔다.
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -43,12 +44,24 @@ export function timeAgo(dateStr: string) {
   return `${m}월 ${d}일`;
 }
 
-export function filterStores(stores: Store[], query: string) {
+/**
+ * 클라이언트 측 매장 검색 필터.
+ * 매장 객체에 존재하는 텍스트 필드(storeName/name, category, address)에 대해
+ * query 문자열이 포함되는지 검사한다.
+ *
+ * 백엔드 StoreSummary(storeName)와 지도 페이지의 로컬 매장 형태(name)에 모두 호환.
+ */
+export function filterStores<
+  T extends {
+    storeName?: string;
+    name?: string;
+    category?: string;
+    address?: string;
+  },
+>(stores: T[], query: string): T[] {
   const q = query.toLowerCase();
-  return stores.filter(
-    (s) =>
-      s.name.toLowerCase().includes(q) ||
-      s.category.toLowerCase().includes(q) ||
-      s.address.toLowerCase().includes(q),
-  );
+  return stores.filter((s) => {
+    const fields = [s.storeName, s.name, s.category, s.address];
+    return fields.some((v) => typeof v === 'string' && v.toLowerCase().includes(q));
+  });
 }

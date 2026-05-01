@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Fragment, useMemo } from 'react';
+import { useState, Fragment } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Star, Clock, MapPin, Heart, Check, Plus } from 'lucide-react';
 import { DayPicker } from 'react-day-picker';
@@ -9,13 +9,20 @@ import 'react-day-picker/style.css';
 import Header from '@/components/common/Header';
 import BottomSheet from '@/components/common/BottomSheet';
 import CenteredModal from '@/components/common/CenteredModal';
-import { mockBookmarkFolders } from '@/lib/mockData';
 import StarRating from '@/components/common/StarRating';
 import { formatDateParts, formatDateDot } from '@/lib/utils';
 import FolderFormModal from '@/components/common/FolderFormModal';
-import type { BookmarkFolder, StoreRemain } from '@/types/store';
+import type { StoreRemain } from '@/types/store';
 import { useStoreDetailQuery, useStoreMenusQuery, useStoreReviewsQuery, useStoreTimesQuery } from '@/lib/storeQuery';
 import { useCreateVacancyMutation } from '@/lib/vacancyQuery';
+import {
+  useBookmarkFoldersQuery,
+  useCreateBookmarkFolderMutation,
+  useAddBookmarkMutation,
+} from '@/lib/bookmarkQuery';
+import { useBookmarkedFolderForStore } from '@/hooks/useBookmarkedFolderForStore';
+import { useAuthStore } from '@/stores/authStore';
+import toast from 'react-hot-toast';
 function getNextDays(count: number) {
   const days = [];
   const today = new Date();
@@ -48,24 +55,33 @@ export default function StoreDetail() {
   const [showTimeModal, setShowTimeModal] = useState(false);
   const [showFolderSheet, setShowFolderSheet] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
-  const [folders, setFolders] = useState<BookmarkFolder[]>(mockBookmarkFolders);
   const [showNewFolder, setShowNewFolder] = useState(false);
+
+  // 북마크 폴더 API 연동 — 비로그인이면 빈 배열로 동작
+  const { accessToken } = useAuthStore();
+  const { data: folderResponses = [] } = useBookmarkFoldersQuery();
+  const folders = folderResponses.map((f) => ({
+    id: f.folderId,
+    name: f.folderName,
+    color: f.color,
+    type: f.folderType,
+  }));
+  const { mutate: createFolder } = useCreateBookmarkFolderMutation();
+  const { mutate: addBookmark } = useAddBookmarkMutation();
+
+  // 현재 매장이 속한 폴더 (없으면 null) — 하트 색상 결정용
+  const storeIdNumber = Number(id);
+  const currentFolder = useBookmarkedFolderForStore(storeIdNumber);
 
   const formattedSelectedDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
   const { data: times = [], isLoading: isTimesLoading } = useStoreTimesQuery(id, formattedSelectedDate);
-
-  const averageRating = useMemo(() => {
-    if (!reviews || reviews.length === 0) return '0.0';
-    const sum = reviews.reduce((acc, cur) => acc + (cur.rating ?? cur.star ?? 0), 0);
-    return (sum / reviews.length).toFixed(1);
-  }, [reviews]);
 
   const days = getNextDays(14);
   const remainData = store?.remainDates || [];
 
   const availableDates = new Set(
     remainData
-      .filter((rd) => rd.remainTeam > 0 || rd.isAvailable)
+      .filter((rd) => rd.available)
       .map((rd) => {
         const dateVal = rd.date;
         if (!dateVal) return '';
@@ -109,10 +125,6 @@ export default function StoreDetail() {
     );
   }
 
-  const currentFolder = folders.find((f) =>
-    f.storeIds.includes(store.id),
-  ) || null;
-
   const handleReserveClick = () => {
     setSelectedTime(null);
     setSelectedRemainId(null);
@@ -124,7 +136,7 @@ export default function StoreDetail() {
     if (!selectedTime || !selectedRemainId) return;
     setShowTimeModal(false);
     
-    const url = `/reservation?storeId=${store?.id || id}&date=${formattedSelectedDate}&time=${selectedTime}&remainId=${selectedRemainId}`;
+    const url = `/reservation?storeId=${store?.storeId || id}&date=${formattedSelectedDate}&time=${selectedTime}&remainId=${selectedRemainId}`;
     router.push(changeFrom ? `${url}&changeFrom=${changeFrom}` : url);
   };
 
@@ -134,7 +146,16 @@ export default function StoreDetail() {
 
       <main className="flex-1">
         {/* 매장 이미지 */}
-        <div className="h-48 w-full bg-gray-200" />
+        <div className="relative h-48 w-full bg-gray-200">
+          <img
+            src={store.storeImage || '/images/ready_image.png'}
+            alt={store.storeName}
+            className="absolute inset-0 h-full w-full object-cover"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = '/images/ready_image.png';
+            }}
+          />
+        </div>
 
         {/* 매장 정보 */}
         <section className="border-b border-gray-100 px-4 py-4">
@@ -145,17 +166,12 @@ export default function StoreDetail() {
             </div>
             <button
               onClick={() => {
-                if (currentFolder) {
-                  setFolders((prev) =>
-                    prev.map((f) =>
-                      f.id === currentFolder.id
-                        ? { ...f, storeIds: f.storeIds.filter((sid) => sid !== store.id) }
-                        : f,
-                    ),
-                  );
-                } else {
-                  setShowFolderSheet(true);
+                if (!accessToken) {
+                  toast.error('로그인이 필요합니다.');
+                  return;
                 }
+                // 폴더 시트에서 추가/이동/제거를 통합 관리
+                setShowFolderSheet(true);
               }}
               className="rounded-full p-2 hover:bg-gray-100"
             >
@@ -175,21 +191,20 @@ export default function StoreDetail() {
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Star size={14} className="fill-orange-400 text-orange-400" />
               <span>
-                {/* 리뷰 기반 평균 별점 자동 계산 */}
-                {averageRating}{' '}
-                ({store?.reviewCount || reviews.length})
+                {(store.averageStar ?? 0).toFixed(1)}{' '}
+                ({store.reviewCount ?? 0})
               </span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <MapPin size={14} />
-              <span>{store.address}</span>
+            <div className="flex items-start gap-2 text-sm text-gray-600">
+              <MapPin size={14} className="mt-0.5 flex-shrink-0" />
+              <span className="flex-1 break-keep">{store.address}</span>
               <button
                 onClick={() =>
                   router.push(
-                    `/map?lat=${store.latitude}&lng=${store.longitude}&storeId=${store.id}`,
+                    `/map?lat=${store.latitude}&lng=${store.longitude}&storeId=${store.storeId}`,
                   )
                 }
-                className="ml-1 text-xs text-orange-500 hover:underline"
+                className="flex-shrink-0 whitespace-nowrap text-xs text-orange-500 hover:underline"
               >
                 지도에서 보기
               </button>
@@ -278,12 +293,18 @@ export default function StoreDetail() {
           ) : menus.length > 0 ? (
             <div className="flex flex-col gap-4">
               {menus.map((menu) => (
-                <div key={menu.id} className="flex items-center gap-4">
-                  {/* 추후 백엔드에서 이미지 URL을 제공하면 img 태그로 변경 가능 */}
-                  <div className="h-16 w-16 flex-shrink-0 rounded-lg bg-gray-200" />
+                <div key={menu.menuId} className="flex items-center gap-4">
+                  <img
+                    src={menu.menuImage || '/images/ready_image.png'}
+                    alt={menu.menuName}
+                    className="h-16 w-16 flex-shrink-0 rounded-lg bg-gray-200 object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/images/ready_image.png';
+                    }}
+                  />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">
-                      {menu.name}
+                      {menu.menuName}
                     </p>
                     <p className="text-xs text-gray-500">{menu.description}</p>
                     <p className="mt-1 text-sm font-semibold text-gray-900">
@@ -310,9 +331,9 @@ export default function StoreDetail() {
           ) : reviews.length > 0 ? (
             <div className="flex flex-col gap-4">
               {reviews.map((review, index) => {
-                const reviewKey = review.id || review.reviewId || `review-${index}`;
-                const reviewerName = review.userName || review.user?.name || review.user?.nickname || review.nickname || '익명';
-                const rating = review.rating ?? review.star ?? 0;
+                const reviewKey = review.reviewId || `review-${index}`;
+                const reviewerName = review.userNickname || '익명';
+                const rating = review.star ?? 0;
                 
                 return (
                   <div
@@ -423,16 +444,15 @@ export default function StoreDetail() {
                   <p className="col-span-5 py-4 text-center text-sm text-gray-400">시간을 불러오는 중...</p>
                 ) : times.length > 0 ? (
                   times.map((t, index) => {
-                    const tTime = t.time || '';
-                    const displayTime = tTime.length > 5 ? tTime.substring(0, 5) : tTime;
-                    const isFull = t.remainTeam <= 0 && !t.isAvailable;
+                    const displayTime = t.remainTime || '';
+                    const isFull = t.remainTeam <= 0;
                     return (
                     <button
-                      key={t.id || `time-${index}`}
+                      key={t.remainId || `time-${index}`}
                       onClick={() => {
-                        if (t.id) {
+                        if (t.remainId) {
                           setSelectedTime(displayTime);
-                          setSelectedRemainId(t.id);
+                          setSelectedRemainId(t.remainId);
                           setSelectedTimeIsFull(isFull);
                         }
                       }}
@@ -457,18 +477,13 @@ export default function StoreDetail() {
             <button
               onClick={() => {
                 if (selectedTimeIsFull) {
-                  createVacancy(
-                    { userId: 1, remainId: selectedRemainId! }, // FIXME: Auth 연동 시 교체
-                    {
-                      onSuccess: () => {
-                        alert('빈자리 알림이 등록되었습니다.');
-                        setShowTimeModal(false);
-                      },
-                      onError: (error: any) => {
-                        alert(error?.response?.data?.message || '빈자리 알림 등록 중 오류가 발생했습니다.');
-                      }
-                    }
-                  );
+                  createVacancy(selectedRemainId!, {
+                    onSuccess: () => {
+                      toast.success('빈자리 알림이 등록되었습니다.');
+                      setShowTimeModal(false);
+                    },
+                    // 에러는 axios 인터셉터가 토스트로 처리
+                  });
                 } else {
                   handleConfirmReservation();
                 }
@@ -537,23 +552,15 @@ export default function StoreDetail() {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => {
-                  if (selectedFolderId) {
-                    setFolders((prev) =>
-                      prev.map((f) => ({
-                        ...f,
-                        storeIds:
-                          f.id === selectedFolderId
-                            ? [...f.storeIds.filter((sid) => sid !== store.id), store.id]
-                            : f.storeIds.filter((sid) => sid !== store.id),
-                      })),
-                    );
+                  if (selectedFolderId && store) {
+                    addBookmark({ folderId: selectedFolderId, storeId: store.storeId });
                   }
                   setShowFolderSheet(false);
                   setSelectedFolderId(null);
                 }}
-                disabled={!selectedFolderId}
+                disabled={!selectedFolderId || !accessToken}
                 className={`flex-1 rounded-lg py-2.5 text-sm font-semibold text-white ${
-                  selectedFolderId
+                  selectedFolderId && accessToken
                     ? 'bg-blue-500 hover:bg-blue-600'
                     : 'bg-gray-300'
                 }`}
@@ -578,15 +585,12 @@ export default function StoreDetail() {
         <FolderFormModal
           mode="create"
           onSubmit={(name, color) => {
-            const newFolder: BookmarkFolder = {
-              id: Math.max(...folders.map((f) => f.id)) + 1,
-              name,
-              type: 'CUSTOM',
-              color,
-              storeIds: [],
-            };
-            setFolders((prev) => [...prev, newFolder]);
-            setSelectedFolderId(newFolder.id);
+            createFolder(
+              { folderName: name, color },
+              {
+                onSuccess: (res) => setSelectedFolderId(res.folderId),
+              },
+            );
             setShowNewFolder(false);
           }}
           onClose={() => setShowNewFolder(false)}

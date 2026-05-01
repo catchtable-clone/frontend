@@ -1,5 +1,136 @@
 import api from '@/lib/axios';
-import { StoreDetail, Menu, Review, StoreRemain } from '@/types/store';
+import { unwrap } from '@/lib/apiUtils';
+import { StoreDetail, StoreSummary, Menu, Review, StoreRemain } from '@/types/store';
+
+/**
+ * 매장 등록 요청 (백엔드 StoreCreateRequest)
+ */
+export interface StoreCreateRequest {
+  storeName: string;
+  storeImage?: string;
+  category: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  district: string;
+  team: number;
+  openTime: string;
+  closeTime: string;
+}
+
+/**
+ * 매장 등록 (어드민 전용, 백엔드 POST /stores)
+ */
+export const createStore = async (data: StoreCreateRequest): Promise<{ storeId: number }> => {
+  const response = await api.post('/stores', data);
+  return unwrap<{ storeId: number }>(response, { storeId: 0 });
+};
+
+/**
+ * 매장 정보 수정 (어드민 전용, 백엔드 PUT /stores/{storeId})
+ * 등록 후 이미지 업로드 → 다시 storeImage URL을 반영하는 3단계 흐름에서 사용.
+ */
+export const updateStore = async (
+  storeId: number,
+  data: StoreCreateRequest,
+): Promise<{ storeId: number }> => {
+  const response = await api.put(`/stores/${storeId}`, data);
+  return unwrap<{ storeId: number }>(response, { storeId });
+};
+
+/**
+ * 메뉴 일괄 등록 요청
+ */
+export interface MenuItemRequest {
+  menuName: string;
+  price: number;
+  description?: string;
+  menuImage?: string;
+}
+
+/**
+ * 메뉴 일괄 등록 (백엔드 POST /stores/{storeId}/menu)
+ */
+export const createMenus = async (
+  storeId: number,
+  menus: MenuItemRequest[],
+): Promise<{ menuId: number[] }> => {
+  const response = await api.post(`/stores/${storeId}/menu`, { menus });
+  return unwrap<{ menuId: number[] }>(response, { menuId: [] });
+};
+
+/**
+ * 매장 목록 통합 조회 (백엔드 GET /stores)
+ * 모든 파라미터 옵셔널 — 미지정 시 전체 매장 반환
+ */
+export interface StoreListParams {
+  name?: string;
+  category?: string;
+  district?: string;
+  page?: number;
+  size?: number;
+}
+
+export const getStores = async (params: StoreListParams = {}): Promise<StoreSummary[]> => {
+  const filteredParams = Object.fromEntries(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+  );
+  const response = await api.get('/stores', { params: filteredParams });
+  return unwrap<StoreSummary[]>(response, []);
+};
+
+/**
+ * 인기 매장 조회 (평균 평점 내림차순)
+ */
+export const getPopularStores = async (limit = 10): Promise<StoreSummary[]> => {
+  const response = await api.get('/stores/popular', { params: { limit } });
+  return unwrap<StoreSummary[]>(response, []);
+};
+
+/**
+ * 내 주변 매장 조회 (좌표 거리 정렬 + 페이지네이션)
+ */
+export const getNearbyStores = async (
+  latitude: number,
+  longitude: number,
+  page = 0,
+  size = 10,
+): Promise<StoreSummary[]> => {
+  const response = await api.get('/stores/nearby', {
+    params: { latitude, longitude, page, size },
+  });
+  return unwrap<StoreSummary[]>(response, []);
+};
+
+/**
+ * 지도 화면 영역 안의 매장 조회. 카카오맵 idle 이벤트에서 호출한다.
+ * limit는 너무 넓은 영역(전국)에서 응답 폭주 방지용 상한선.
+ */
+export interface StoreBounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+  /** 지도 화면 중심 — 가까운 순으로 정렬할 때 기준점 */
+  centerLat: number;
+  centerLng: number;
+  limit?: number;
+}
+
+export const getStoresInBounds = async (bounds: StoreBounds): Promise<StoreSummary[]> => {
+  const response = await api.get('/stores/in-bounds', {
+    params: {
+      minLat: bounds.minLat,
+      maxLat: bounds.maxLat,
+      minLng: bounds.minLng,
+      maxLng: bounds.maxLng,
+      centerLat: bounds.centerLat,
+      centerLng: bounds.centerLng,
+      limit: bounds.limit ?? 1000,
+    },
+  });
+  return unwrap<StoreSummary[]>(response, []);
+};
 
 /**
  * 특정 ID를 가진 매장의 상세 정보를 조회하는 API 함수
@@ -8,29 +139,7 @@ import { StoreDetail, Menu, Review, StoreRemain } from '@/types/store';
  */
 export const getStoreDetail = async (storeId: string): Promise<StoreDetail> => {
   const response = await api.get(`/stores/${storeId}`);
-
-  // 백엔드가 공통 응답 형식(예: { status: 200, data: {...} })으로 감싸서 보낼 경우 알맹이 추출
-  const storeData = response.data.data || response.data.result || response.data;
-  
-  // 데이터 정규화 (Normalization)
-  const rawRemains = storeData.remainDates || storeData.storeRemains || storeData.remains || [];
-  storeData.remainDates = rawRemains.map((rd: any) => {
-    if (typeof rd === 'string') return { date: rd, isAvailable: true, remainTeam: 1 } as StoreRemain;
-    if (Array.isArray(rd)) return { date: rd[0], isAvailable: rd[1] > 0, remainTeam: rd[1] } as StoreRemain;
-    if (typeof rd === 'object' && rd !== null) {
-      const remainTeam = rd.remainTeam ?? rd.remainCount ?? rd.teamCount ?? 0;
-      return {
-        id: rd.id ?? rd.remainId ?? rd.remain_id ?? 0,
-        date: rd.date ?? rd.remainDate ?? rd.remain_date ?? '',
-        time: rd.time ?? rd.remainTime ?? rd.remain_time ?? '',
-        isAvailable: rd.available ?? rd.isAvailable ?? rd.hasRemain ?? (remainTeam > 0),
-        remainTeam: remainTeam,
-      } as StoreRemain;
-    }
-    return { id: 0, date: '', time: '', isAvailable: false, remainTeam: 0 } as StoreRemain;
-  });
-
-  return storeData as StoreDetail;
+  return unwrap<StoreDetail>(response, {} as StoreDetail);
 };
 
 /**
@@ -38,10 +147,8 @@ export const getStoreDetail = async (storeId: string): Promise<StoreDetail> => {
  * @param storeId - 조회할 매장의 ID
  */
 export const getStoreMenus = async (storeId: string): Promise<Menu[]> => {
-  // 백엔드 API 설계에 맞춰 정확한 주소로 변경합니다.
   const response = await api.get(`/stores/${storeId}/menu`);
-  const menuData = response.data.data || response.data.result || response.data;
-  return menuData as Menu[];
+  return unwrap<Menu[]>(response, []);
 };
 
 /**
@@ -49,19 +156,8 @@ export const getStoreMenus = async (storeId: string): Promise<Menu[]> => {
  * @param storeId - 조회할 매장의 ID
  */
 export const getStoreReviews = async (storeId: string): Promise<Review[]> => {
-  // /stores/{id}/reviews (GET) 은 405 에러가 발생하므로, 도메인 주도 REST 규칙에 맞춰 우회 호출합니다.
-  // 첫 번째 패턴 시도 후 404 발생 시 두 번째 패턴으로 자동 재시도
-  try {
-    const response = await api.get(`/reviews/store/${storeId}`);
-    return (response.data.data || response.data.result || response.data) as Review[];
-  } catch (error: any) {
-    // 404(Not Found) 또는 405(Method Not Allowed) 에러일 경우에만 우회 호출 시도
-    if (error.response && (error.response.status === 404 || error.response.status === 405)) {
-      const fallbackResponse = await api.get(`/reviews`, { params: { storeId } });
-      return (fallbackResponse.data.data || fallbackResponse.data.result || fallbackResponse.data) as Review[];
-    }
-    throw error;
-  }
+  const response = await api.get(`/reviews/store/${storeId}`);
+  return unwrap<Review[]>(response, []);
 };
 
 /**
@@ -70,19 +166,6 @@ export const getStoreReviews = async (storeId: string): Promise<Review[]> => {
  * @param date - 조회할 날짜 (YYYY-MM-DD)
  */
 export const getStoreTimes = async (storeId: string, date: string): Promise<StoreRemain[]> => {
-  // 백엔드 명세에 맞춰 /remains 엔드포인트에 쿼리 파라미터로 storeId와 date를 전달합니다.
   const response = await api.get(`/remains`, { params: { storeId, date } });
-  const rawData = response.data.data || response.data.result || response.data || [];
-
-  // 데이터 정규화 (Normalization)
-  return rawData.map((t: any) => {
-    const remainTeam = t.remainTeam ?? t.remainCount ?? t.teamCount ?? 0;
-    return {
-      id: t.id ?? t.remainId ?? t.remain_id ?? 0,
-      date: t.date ?? t.remainDate ?? t.remain_date ?? '',
-      time: t.time ?? t.remainTime ?? t.remain_time ?? '',
-      isAvailable: t.available ?? t.isAvailable ?? t.hasRemain ?? (remainTeam > 0),
-      remainTeam: remainTeam,
-    } as StoreRemain;
-  });
+  return unwrap<StoreRemain[]>(response, []);
 };

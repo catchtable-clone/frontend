@@ -34,3 +34,47 @@ export async function getMyCoupons(): Promise<Coupon[]> {
   );
   return res.data.data.map(toCoupon);
 }
+
+export interface ActiveCouponTemplate {
+  templateId: number;
+  couponName: string;
+  discountRate: number;
+  amount: number;
+  remain: number;
+  startedAt: string;
+  expiredAt: string;
+}
+
+export async function getActiveCouponTemplates(): Promise<ActiveCouponTemplate[]> {
+  const res = await api.get<ApiEnvelope<ActiveCouponTemplate[]>>(
+    '/coupons/templates/active',
+  );
+  return res.data.data ?? [];
+}
+
+export async function issueCoupon(templateId: number): Promise<void> {
+  await api.post(`/coupons/${templateId}/issue`);
+}
+
+export interface CreateCouponTemplateRequest {
+  couponName: string;
+  discountRate: number;
+  amount: number;
+  startedAt: string; // LocalDateTime ISO string
+  expiredAt: string;
+}
+
+export interface CreateCouponTemplateResponse {
+  templateId: number;
+  couponName: string;
+}
+
+export async function createCouponTemplate(
+  data: CreateCouponTemplateRequest,
+): Promise<CreateCouponTemplateResponse> {
+  const res = await api.post<ApiEnvelope<CreateCouponTemplateResponse>>(
+    '/coupons/templates',
+    data,
+  );
+  return res.data.data;
+}

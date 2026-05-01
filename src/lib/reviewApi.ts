@@ -1,4 +1,5 @@
 import api from '@/lib/axios';
+import { unwrap } from '@/lib/apiUtils';
 
 export interface CreateReviewRequest {
   reservationId: number;
@@ -19,32 +20,43 @@ export interface ReviewResponse {
   content: string;
   reviewImage: string;
   createdAt: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
- * 방문 완료된 예약에 대해 리뷰를 작성하는 API 함수
+ * 방문 완료된 예약에 대해 리뷰를 작성한다.
+ * 인증은 axios 인터셉터가 X-User-Id 헤더로 자동 첨부.
  */
-export const createReview = async (userId: number, data: CreateReviewRequest): Promise<void> => {
-  // ReviewController가 @RequestBody를 사용하므로 JSON 형식으로 데이터를 전송합니다.
+export const createReview = async (data: CreateReviewRequest): Promise<void> => {
   const payload = {
     reservationId: data.reservationId,
     storeId: data.storeId,
-    star: data.rating, // 백엔드 DTO 명세에 맞춰 rating 대신 star로 매핑합니다.
+    star: data.rating, // 백엔드 DTO 명세에 맞춰 rating 대신 star로 매핑
     content: data.content,
-    // 백엔드 컨트롤러에 MultipartFile 처리 로직이 없으므로 실제 파일 객체는 전송하지 않습니다. 
-    // (추후 별도 S3 이미지 업로드 API가 추가되면 imageUrls 배열 등으로 전달해야 합니다.)
+    // 백엔드에 MultipartFile 처리가 없어 실제 파일은 보내지 않음.
+    // (추후 별도 S3 업로드 API가 추가되면 imageUrls 등으로 전달)
   };
-
-  await api.post('/reviews', payload, {
-    params: { userId }, // 기존 백엔드 명세 규칙(Query Parameter)에 맞춤
-  });
+  await api.post('/reviews', payload);
 };
 
-/**
- * 내가 작성한 리뷰 목록을 조회하는 API 함수
- */
-export const getMyReviews = async (userId: number): Promise<ReviewResponse[]> => {
-  const response = await api.get('/reviews/me', { params: { userId } });
-  return (response.data.data || response.data.result || response.data || []) as ReviewResponse[];
+export const getMyReviews = async (): Promise<ReviewResponse[]> => {
+  const response = await api.get('/reviews/me');
+  return unwrap<ReviewResponse[]>(response, []);
+};
+
+export interface UpdateReviewRequest {
+  star?: number;
+  content?: string;
+  reviewImage?: string;
+}
+
+export const updateReview = async (
+  reviewId: number,
+  data: UpdateReviewRequest,
+): Promise<void> => {
+  await api.patch(`/reviews/${reviewId}`, data);
+};
+
+export const deleteReview = async (reviewId: number): Promise<void> => {
+  await api.delete(`/reviews/${reviewId}`);
 };

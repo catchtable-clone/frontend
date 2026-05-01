@@ -20,10 +20,15 @@ import Tabs from '@/components/common/Tabs';
 import LoginRequired from '@/components/common/LoginRequired';
 import { formatDate } from '@/lib/utils';
 import { useReservationsQuery, useCancelReservationMutation } from '@/lib/reservationQuery';
-import { useCreateReviewMutation, useMyReviewsQuery } from '@/lib/reviewQuery';
+import {
+  useCreateReviewMutation,
+  useMyReviewsQuery,
+  useUpdateReviewMutation,
+} from '@/lib/reviewQuery';
 import { useMyVacanciesQuery, useCancelVacancyMutation } from '@/lib/vacancyQuery';
 import { useAuthStore } from '@/stores/authStore';
 import type { Reservation, ReservationStatus, VacancySubscription } from '@/types/store';
+import toast from 'react-hot-toast';
 
 const STATUS_CONFIG: Record<
   string,
@@ -44,11 +49,13 @@ function ReservationCard({
   reservation,
   onCancel,
   onWriteReview,
+  onEditReview,
   isReviewed,
 }: {
   reservation: Reservation;
   onCancel: (id: number) => void;
   onWriteReview: (reservation: Reservation) => void;
+  onEditReview: (reservation: Reservation) => void;
   isReviewed: boolean;
 }) {
   const router = useRouter();
@@ -121,9 +128,18 @@ function ReservationCard({
       {isVisited && (
         <div className="mt-4">
           {hasReview ? (
-            <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-600">
-              <Check size={16} />
-              <span>리뷰 작성 완료</span>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-600">
+                <Check size={16} />
+                <span>리뷰 작성 완료</span>
+              </div>
+              <button
+                onClick={() => onEditReview(reservation)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <Pencil size={14} />
+                리뷰 수정
+              </button>
             </div>
           ) : (
             <button
@@ -148,28 +164,32 @@ export default function ReservationsPage() {
 
   const [tab, setTab] = useState<'upcoming' | 'visited' | 'canceled' | 'vacancy'>('upcoming');
 
-  // FIXME: 실제 유저 연동 시 AuthStore에서 가져온 userId로 교체합니다.
-  const userId = 1;
-  const { data: reservations = [], isLoading } = useReservationsQuery(userId);
+  const userId = useAuthStore((s) => s.userId) ?? 0;
+  const { data: reservations = [], isLoading } = useReservationsQuery();
   const { mutate: cancelReservation } = useCancelReservationMutation();
-  const { data: vacancies = [], isLoading: isVacancyLoading } = useMyVacanciesQuery(userId);
+  const { data: vacancies = [], isLoading: isVacancyLoading } = useMyVacanciesQuery();
   const { mutate: cancelVacancy } = useCancelVacancyMutation();
   const [cancelTarget, setCancelTarget] = useState<number | null>(null);
   const [vacancyCancelTarget, setVacancyCancelTarget] = useState<number | null>(null);
 
-  // 리뷰 작성 상태
+  // 리뷰 작성/수정 상태
   const [reviewTarget, setReviewTarget] = useState<Reservation | null>(null);
+  const [reviewMode, setReviewMode] = useState<'create' | 'edit'>('create');
+  const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState('');
   const [reviewImages, setReviewImages] = useState<{ file: File; url: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { mutate: createReview, isPending: isReviewPending } = useCreateReviewMutation();
+  const { mutate: createReview, isPending: isCreatePending } = useCreateReviewMutation();
+  const { mutate: updateReview, isPending: isUpdatePending } = useUpdateReviewMutation();
+  const isReviewPending = isCreatePending || isUpdatePending;
 
   // 내가 작성한 리뷰 목록을 불러와서 이미 리뷰를 작성한 예약인지 확인합니다.
-  const { data: myReviews = [] } = useMyReviewsQuery(userId);
-  
-  // 백엔드 ReviewResponseDto의 reservationId를 기준으로 완벽하게 교차 검증합니다.
-  const reviewedReservationIds = new Set(myReviews.map((r) => r.reservationId));
+  const { data: myReviews = [] } = useMyReviewsQuery();
+
+  // reservationId → 리뷰 객체 Map (수정 시 prefill용)
+  const reviewByReservationId = new Map(myReviews.map((r) => [r.reservationId, r]));
+  const reviewedReservationIds = new Set(reviewByReservationId.keys());
 
   const upcoming = reservations.filter((r) => r.status === 'PENDING' || r.status === 'CONFIRMED');
   const visited = reservations.filter((r) => r.status === 'VISITED');
@@ -182,28 +202,43 @@ export default function ReservationsPage() {
 
   const confirmCancel = () => {
     if (cancelTarget === null) return;
-    cancelReservation(
-      { reservationId: cancelTarget, userId },
-      {
-        onSuccess: () => setCancelTarget(null),
-        onError: (error) => {
-          console.error('예약 취소 실패:', error);
-          alert('예약 취소 중 오류가 발생했습니다.');
-        },
-      }
-    );
+    cancelReservation(cancelTarget, {
+      onSuccess: () => {
+        toast.success('예약이 취소되었습니다.');
+        setCancelTarget(null);
+      },
+      onError: () => {
+        // 토스트는 axios 인터셉터에서 처리됨
+        setCancelTarget(null);
+      },
+    });
   };
 
   const openReviewModal = (reservation: Reservation) => {
+    setReviewMode('create');
+    setEditingReviewId(null);
     setReviewTarget(reservation);
     setReviewRating(0);
     setReviewContent('');
     setReviewImages([]);
   };
 
+  const openEditReviewModal = (reservation: Reservation) => {
+    const existing = reviewByReservationId.get(reservation.id);
+    if (!existing) return;
+    setReviewMode('edit');
+    setEditingReviewId(existing.reviewId);
+    setReviewTarget(reservation);
+    setReviewRating(existing.star ?? 0);
+    setReviewContent(existing.content ?? '');
+    setReviewImages([]);
+  };
+
   const closeReviewModal = () => {
     reviewImages.forEach((img) => URL.revokeObjectURL(img.url));
     setReviewTarget(null);
+    setReviewMode('create');
+    setEditingReviewId(null);
     setReviewRating(0);
     setReviewContent('');
     setReviewImages([]);
@@ -233,31 +268,41 @@ export default function ReservationsPage() {
   };
 
   const submitReview = () => {
-    if (!reviewTarget || reviewRating === 0) return;
+    if (!reviewTarget || reviewRating === 0 || !userId) return;
+
+    if (reviewMode === 'edit' && editingReviewId !== null) {
+      updateReview(
+        {
+          reviewId: editingReviewId,
+          data: { star: reviewRating, content: reviewContent },
+        },
+        {
+          onSuccess: () => {
+            toast.success('리뷰가 수정되었습니다.');
+            closeReviewModal();
+          },
+        },
+      );
+      return;
+    }
 
     createReview(
       {
-        userId,
-        data: {
-          reservationId: reviewTarget.id,
-          storeId: reviewTarget.storeId,
-          rating: reviewRating,
-          content: reviewContent,
-          images: reviewImages.map((img) => img.file), // 실제 File 객체 전송
-        },
+        reservationId: reviewTarget.id,
+        storeId: reviewTarget.storeId,
+        rating: reviewRating,
+        content: reviewContent,
+        images: reviewImages.map((img) => img.file),
       },
       {
         onSuccess: () => {
-          alert('리뷰가 성공적으로 등록되었습니다.');
+          toast.success('리뷰가 등록되었습니다.');
           closeReviewModal();
         },
         onError: (error: any) => {
-          console.error('리뷰 등록 실패:', error);
-          if (error?.response?.data?.code === 'REVIEW_ALREADY_EXISTS' || error?.response?.status === 400) {
-            alert('이미 리뷰가 등록된 예약입니다.');
+          // 일반 에러는 axios 인터셉터가 토스트로 처리. 여기서는 모달 닫기만 결정.
+          if (error?.response?.data?.code === 'REVIEW_ALREADY_EXISTS') {
             closeReviewModal();
-          } else {
-            alert('리뷰 등록 중 오류가 발생했습니다.');
           }
         },
       }
@@ -327,6 +372,7 @@ export default function ReservationsPage() {
                   reservation={reservation}
                   onCancel={handleCancel}
                   onWriteReview={openReviewModal}
+                  onEditReview={openEditReviewModal}
                   isReviewed={reviewedReservationIds.has(reservation.id)}
                 />
               ))
@@ -434,23 +480,20 @@ export default function ReservationsPage() {
           confirmLabel="취소하기"
           onConfirm={() => {
             if (vacancyCancelTarget) {
-              cancelVacancy(
-                { vacancyId: vacancyCancelTarget, userId },
-                {
-                  onSuccess: () => setVacancyCancelTarget(null),
-                  onError: (error: any) => {
-                    alert(error?.response?.data?.message || '알림 취소 중 오류가 발생했습니다.');
-                    setVacancyCancelTarget(null);
-                  }
-                }
-              );
+              cancelVacancy(vacancyCancelTarget, {
+                onSuccess: () => {
+                  toast.success('빈자리 알림이 취소되었습니다.');
+                  setVacancyCancelTarget(null);
+                },
+                onError: () => setVacancyCancelTarget(null),
+              });
             }
           }}
           onCancel={() => setVacancyCancelTarget(null)}
         />
       )}
 
-      {/* 리뷰 작성 모달 */}
+      {/* 리뷰 작성/수정 모달 */}
       {reviewTarget && (
         <BottomSheet onClose={closeReviewModal}>
           <button
@@ -498,7 +541,8 @@ export default function ReservationsPage() {
               className="mb-4 w-full resize-none rounded-lg border border-gray-200 px-3 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
             />
 
-            {/* 이미지 첨부 */}
+            {/* 이미지 첨부 (신규 작성 시에만) */}
+            {reviewMode === 'create' && (
             <div className="mb-5">
               <div className="flex items-center gap-3">
                 {reviewImages.length < 5 && (
@@ -539,6 +583,7 @@ export default function ReservationsPage() {
                 ))}
               </div>
             </div>
+            )}
 
             {/* 제출 버튼 */}
             <button
@@ -550,7 +595,13 @@ export default function ReservationsPage() {
                   : 'bg-gray-300'
               }`}
             >
-              {isReviewPending ? '등록 중...' : '리뷰 등록'}
+              {isReviewPending
+                ? reviewMode === 'edit'
+                  ? '수정 중...'
+                  : '등록 중...'
+                : reviewMode === 'edit'
+                  ? '리뷰 수정'
+                  : '리뷰 등록'}
             </button>
         </BottomSheet>
       )}

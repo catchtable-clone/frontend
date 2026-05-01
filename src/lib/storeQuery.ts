@@ -1,5 +1,70 @@
-import { useQuery } from '@tanstack/react-query';
-import { getStoreDetail, getStoreMenus, getStoreReviews, getStoreTimes } from './storeApi';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import {
+  getStoreDetail,
+  getStoreMenus,
+  getStoreReviews,
+  getStoreTimes,
+  getStores,
+  getPopularStores,
+  getNearbyStores,
+  StoreListParams,
+} from './storeApi';
+
+/**
+ * 매장 목록 통합 조회 TanStack Query 훅
+ * @param params name·category·district 옵셔널
+ * @param enabled false면 호출 안 함 (입력 후에만 실행 등)
+ */
+export const useStoresQuery = (params: StoreListParams = {}, enabled = true) => {
+  return useQuery({
+    queryKey: ['stores', params],
+    queryFn: () => getStores(params),
+    enabled,
+  });
+};
+
+/**
+ * 매장 목록 통합 조회 무한 스크롤 훅 (카테고리/지역 필터 + 페이지네이션)
+ */
+export const useStoresInfiniteQuery = (
+  params: Omit<StoreListParams, 'page' | 'size'> = {},
+  size = 10,
+) => {
+  return useInfiniteQuery({
+    queryKey: ['storesInfinite', params, size],
+    queryFn: ({ pageParam = 0 }) => getStores({ ...params, page: pageParam, size }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === size ? allPages.length : undefined,
+  });
+};
+
+/**
+ * 인기 매장 조회 (평점 내림차순)
+ */
+export const usePopularStoresQuery = (limit = 10) => {
+  return useQuery({
+    queryKey: ['popularStores', limit],
+    queryFn: () => getPopularStores(limit),
+  });
+};
+
+/**
+ * 내 주변 매장 무한 스크롤 조회
+ */
+export const useNearbyStoresInfiniteQuery = (
+  latitude: number,
+  longitude: number,
+  size = 10,
+) => {
+  return useInfiniteQuery({
+    queryKey: ['nearbyStores', latitude, longitude, size],
+    queryFn: ({ pageParam = 0 }) => getNearbyStores(latitude, longitude, pageParam, size),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === size ? allPages.length : undefined,
+  });
+};
 
 /**
  * 매장 상세 정보를 조회하는 TanStack Query 전용 훅
