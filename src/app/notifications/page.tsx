@@ -135,7 +135,7 @@ export default function NotificationsPage() {
       <main className="flex-1">
         {/* 필터 + 모두 읽음 */}
         <div className="flex items-center gap-3 border-b border-gray-100 px-4 py-3">
-          <div className="scrollbar-hide flex flex-1 gap-2 overflow-x-auto whitespace-nowrap">
+          <div className="flex flex-1 gap-2 overflow-x-auto whitespace-nowrap">
             {filters.map(({ key, label }) => (
               <FilterChip
                 key={key}

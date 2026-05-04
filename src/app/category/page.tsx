@@ -52,7 +52,7 @@ function CategoryContent() {
 
   return (
     <>
-      <Header showSearch />
+      <Header showSearch showBack />
       <main className="flex-1">
         {/* 카테고리 탭 */}
         <div className="flex gap-2 overflow-x-auto border-b border-gray-100 px-4 py-3">
