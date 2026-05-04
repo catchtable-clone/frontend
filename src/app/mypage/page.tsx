@@ -10,10 +10,19 @@ import BottomNav from '@/components/common/BottomNav';
 import LoginRequired from '@/components/common/LoginRequired';
 import { useAuthStore } from '@/stores/authStore';
 import { useMeQuery } from '@/lib/userQuery';
+import { logoutApi } from '@/lib/api/authApi';
 
 export default function MyPage() {
   const router = useRouter();
-  const { accessToken, user, logout } = useAuthStore();
+  const { accessToken, refreshToken, user, logout } = useAuthStore();
+
+  const handleLogout = async () => {
+    if (refreshToken) {
+      await logoutApi(refreshToken).catch(() => {});
+    }
+    logout();
+    router.push('/login');
+  };
   const isLoggedIn = !!accessToken;
   // 로그인 후 백엔드에서 user 정보 자동 동기화 (role 등)
   useMeQuery();
@@ -108,7 +117,7 @@ export default function MyPage() {
 
             {/* 로그아웃 */}
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="flex items-center gap-3 px-2 py-4 text-sm text-red-500"
             >
               <LogOut size={20} />

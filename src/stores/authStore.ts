@@ -10,12 +10,13 @@ export interface AuthUser {
 }
 
 interface AuthState {
-  userId: number | null;        // 로그인 시 알아야 X-User-Id 헤더에 사용
+  userId: number | null;
   accessToken: string | null;
-  user: AuthUser | null;        // /users/me에서 받은 정보
-  setAuth: (token: string, userId: number) => void;
+  refreshToken: string | null;
+  user: AuthUser | null;
+  setAuth: (accessToken: string, refreshToken: string, userId: number, nickname?: string, profileImage?: string | null) => void;
   setUser: (user: AuthUser) => void;
-  setAccessToken: (token: string | null) => void;  // 호환용 (기존 코드 사용)
+  setAccessToken: (token: string | null) => void;
   logout: () => void;
 }
 
@@ -24,18 +25,26 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       userId: null,
       accessToken: null,
+      refreshToken: null,
       user: null,
-      setAuth: (token, userId) => set({ accessToken: token, userId }),
+      setAuth: (accessToken, refreshToken, userId, nickname, profileImage) =>
+        set({
+          accessToken,
+          refreshToken,
+          userId,
+          user: nickname
+            ? { userId, email: '', nickname, profileImage: profileImage ?? undefined, role: 'USER' }
+            : null,
+        }),
       setUser: (user) => set({ user }),
       setAccessToken: (token) => set({ accessToken: token }),
-      logout: () => set({ accessToken: null, userId: null, user: null }),
+      logout: () => set({ accessToken: null, refreshToken: null, userId: null, user: null }),
     }),
     {
       name: 'auth-storage',
-      // userId까지 persist — 새로고침해도 로그인 상태(특히 admin) 유지
-      // (기본값을 null로 두므로 명시적 setAuth 호출 없이는 임의 user로 자동 식별되지 않음)
       partialize: (state) => ({
         accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
         userId: state.userId,
       }),
     },
