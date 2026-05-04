@@ -171,9 +171,10 @@ function MapContent() {
   const clearMarkers = useCallback(() => {
     if (clustererRef.current) {
       clustererRef.current.clear();
-    } else {
-      markersRef.current.forEach(({ marker }) => marker.setMap(null));
     }
+    // 강조 마커는 클러스터에 속하지 않고 setMap으로 직접 표시되므로,
+    // 클러스터 clear와 별개로 모든 마커에 setMap(null) 처리해야 잔존 마커가 안 생긴다.
+    markersRef.current.forEach(({ marker }) => marker.setMap(null));
     markersRef.current = [];
   }, []);
 
@@ -212,15 +213,21 @@ function MapContent() {
     });
   }, [storeIdToFolder, createColoredMarkerImage]);
 
+  const focusedStoreId = focusedStore?.storeId ?? null;
+
   const addMarkers = useCallback(
     (map: kakao.maps.Map) => {
-      const newMarkers: kakao.maps.Marker[] = [];
+      const clusterMarkers: kakao.maps.Marker[] = [];
 
       stores.forEach((store) => {
+        const isFocused = focusedStoreId === store.storeId;
         const folder = storeIdToFolder.get(store.storeId);
-        const markerImage = folder
-          ? createColoredMarkerImage(folder.color)
-          : undefined;
+        // 현재 선택된(focused) 매장은 강조 색(주황)으로 별도 표시 → 사용자가 위치 즉시 인식 가능
+        const markerImage = isFocused
+          ? createColoredMarkerImage('#F97316')
+          : folder
+            ? createColoredMarkerImage(folder.color)
+            : undefined;
 
         // 클러스터러가 마커의 표시(map)를 관리하므로 여기서는 map을 넘기지 않는다.
         const marker = new kakao.maps.Marker({
@@ -229,7 +236,6 @@ function MapContent() {
         });
 
         markersRef.current.push({ store, marker });
-        newMarkers.push(marker);
 
         // 마커 클릭 → 클릭한 매장을 지도 중앙으로 이동 + React 카드로 매장 정보 표시
         kakao.maps.event.addListener(marker, 'click', () => {
@@ -245,25 +251,44 @@ function MapContent() {
           });
         });
 
-        if (targetStoreId && store.storeId === Number(targetStoreId)) {
-          setFocusedStore({
-            storeId: store.storeId,
-            storeName: store.storeName,
-            category: store.category,
-            address: store.address,
-          });
+        // 강조 매장 마커는 클러스터러에 넣지 않고 항상 개별 표시.
+        // zIndex를 높게 줘서 클러스터러 마커보다 위에 그려지도록 한다.
+        if (isFocused) {
+          marker.setZIndex(999);
+          marker.setMap(map);
+        } else {
+          clusterMarkers.push(marker);
         }
       });
 
       if (clustererRef.current) {
-        clustererRef.current.addMarkers(newMarkers);
+        clustererRef.current.addMarkers(clusterMarkers);
       } else {
         // 안전망 — 클러스터러가 아직 준비되지 않은 경우 개별 표시
-        newMarkers.forEach((m) => m.setMap(map));
+        clusterMarkers.forEach((m) => m.setMap(map));
       }
     },
-    [stores, storeIdToFolder, targetStoreId, createColoredMarkerImage],
+    [stores, storeIdToFolder, focusedStoreId, createColoredMarkerImage],
   );
+
+  // targetStoreId(쿼리 파라미터)로 진입 시 해당 매장 카드를 자동 표시 — 진입당 한 번만
+  const focusedTargetStoreIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!targetStoreId) {
+      focusedTargetStoreIdRef.current = null;
+      return;
+    }
+    if (focusedTargetStoreIdRef.current === targetStoreId) return;
+    const target = stores.find((s) => s.storeId === Number(targetStoreId));
+    if (!target) return;
+    focusedTargetStoreIdRef.current = targetStoreId;
+    setFocusedStore({
+      storeId: target.storeId,
+      storeName: target.storeName,
+      category: target.category,
+      address: target.address,
+    });
+  }, [targetStoreId, stores]);
 
   /**
    * 카카오맵 LatLngBounds 객체를 우리 쿼리 파라미터 모양으로 변환.
@@ -293,7 +318,7 @@ function MapContent() {
     kakao.maps.load(() => {
       const centerLat = targetLat ? parseFloat(targetLat) : 37.4979;
       const centerLng = targetLng ? parseFloat(targetLng) : 127.0276;
-      const zoomLevel = targetStoreId ? 3 : 7;
+      const zoomLevel = targetStoreId ? 1 : 7;
       const center = new kakao.maps.LatLng(centerLat, centerLng);
 
       if (mapInstanceRef.current) {

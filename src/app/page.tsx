@@ -173,7 +173,7 @@ export default function Home() {
           {isPopularLoading ? (
             <p className="py-4 text-center text-sm text-gray-400">매장을 불러오는 중...</p>
           ) : popularStores.length > 0 ? (
-            <div className="flex gap-3 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-3 overflow-x-auto">
               {popularStores.map((store) => (
                 <Link
                   key={store.storeId}

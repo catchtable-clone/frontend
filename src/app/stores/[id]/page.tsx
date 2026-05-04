@@ -19,6 +19,7 @@ import {
   useBookmarkFoldersQuery,
   useCreateBookmarkFolderMutation,
   useAddBookmarkMutation,
+  useDeleteBookmarkMutation,
 } from '@/lib/bookmarkQuery';
 import { useBookmarkedFolderForStore } from '@/hooks/useBookmarkedFolderForStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -68,6 +69,7 @@ export default function StoreDetail() {
   }));
   const { mutate: createFolder } = useCreateBookmarkFolderMutation();
   const { mutate: addBookmark } = useAddBookmarkMutation();
+  const { mutate: removeBookmark } = useDeleteBookmarkMutation();
 
   // 현재 매장이 속한 폴더 (없으면 null) — 하트 색상 결정용
   const storeIdNumber = Number(id);
@@ -170,8 +172,12 @@ export default function StoreDetail() {
                   toast.error('로그인이 필요합니다.');
                   return;
                 }
-                // 폴더 시트에서 추가/이동/제거를 통합 관리
-                setShowFolderSheet(true);
+                // 이미 즐겨찾기된 매장이면 해제, 아니면 폴더 선택 모달
+                if (currentFolder) {
+                  removeBookmark(currentFolder.bookmarkId);
+                } else {
+                  setShowFolderSheet(true);
+                }
               }}
               className="rounded-full p-2 hover:bg-gray-100"
             >

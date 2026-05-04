@@ -29,12 +29,14 @@ export function useBookmarkedFolderForStore(storeId: number) {
   for (let i = 0; i < folders.length; i += 1) {
     const folder = folders[i];
     const bookmarks = queries[i]?.data ?? [];
-    if (bookmarks.some((b) => b.storeId === storeId)) {
+    const bookmark = bookmarks.find((b) => b.storeId === storeId);
+    if (bookmark) {
       return {
         id: folder.folderId,
         name: folder.folderName,
         color: folder.color,
         type: folder.folderType,
+        bookmarkId: bookmark.bookmarkId,
       };
     }
   }
