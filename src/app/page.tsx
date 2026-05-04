@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Ticket, Clock, X, Star } from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
@@ -68,7 +69,13 @@ export default function Home() {
     // 에러는 axios 인터셉터가 토스트로 처리
   });
 
+  const router = useRouter();
+
   const openCouponModal = (coupon: ActiveCouponTemplate) => {
+    if (!userId) {
+      router.push('/login?redirect=/');
+      return;
+    }
     setClaimed(false);
     setModalCoupon(coupon);
   };

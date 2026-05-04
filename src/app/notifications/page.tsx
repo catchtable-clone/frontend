@@ -23,6 +23,8 @@ import {
   useMarkAsReadMutation,
   useMarkAllAsReadMutation,
 } from '../../lib/notificationQuery'; // 상대 경로 임포트: tsconfig.json alias 문제 우회
+import LoginRequired from '@/components/common/LoginRequired';
+import { useAuthStore } from '@/stores/authStore';
 
 const TYPE_CONFIG: Record<
   NotificationType,
@@ -62,6 +64,8 @@ const TYPE_CONFIG: Record<
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const { accessToken } = useAuthStore();
+  const isLoggedIn = !!accessToken;
 
   // React Query 훅을 사용하여 알림 목록을 가져옵니다.
   const {
@@ -111,6 +115,18 @@ export default function NotificationsPage() {
     { key: 'RESERVATION_VISITED', label: '방문 완료' },
     { key: 'RESERVATION_REMINDER', label: '리마인드' },
   ];
+
+  if (!isLoggedIn) {
+    return (
+      <>
+        <Header title="알림" />
+        <main className="flex-1">
+          <LoginRequired redirectTo="/notifications" />
+        </main>
+        <BottomNav />
+      </>
+    );
+  }
 
   return (
     <>
