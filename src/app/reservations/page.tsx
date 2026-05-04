@@ -159,8 +159,7 @@ function ReservationCard({
 export default function ReservationsPage() {
   const router = useRouter();
   const { accessToken } = useAuthStore();
-  // FIXME: 백엔드 로그인 API 연동 전까지 임시로 항상 로그인된 상태로 처리합니다.
-  const isLoggedIn = true;
+  const isLoggedIn = !!accessToken;
 
   const [tab, setTab] = useState<'upcoming' | 'visited' | 'canceled' | 'vacancy'>('upcoming');
 
