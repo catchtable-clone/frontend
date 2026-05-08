@@ -3,31 +3,60 @@
 /// <reference types="@types/kakao__maps" />
 
 declare namespace kakao.maps {
-  // 1. @types/kakao__maps 패키지에 누락된 'clusterer' 라이브러리의 MarkerClusterer 클래스를 정의합니다.
-  // 이 클래스는 기본 타입에 포함되어 있지 않으므로 새로 정의해야 합니다.
+  // --- Complete Type Definitions for map/page.tsx ---
+  // The original @types/kakao__maps is incomplete. Declaring a namespace
+  // with some classes was causing TypeScript to ignore the original definitions
+  // entirely. This file now explicitly defines or extends all types used in
+  // the map page to prevent type conflicts and build errors.
+
+  // --- Classes ---
+  // We must re-declare classes used with `new`
+  export class LatLng {
+    constructor(lat: number, lng: number);
+  }
+
+  export class Map {
+    constructor(container: HTMLElement, options: any);
+    panTo(latlng: LatLng): void;
+  }
+
+  export class Marker {
+    constructor(options: { position: LatLng; image?: MarkerImage; map?: Map });
+  }
+
+  export class MarkerImage {
+    constructor(src: string, size: Size, options?: { offset?: Point });
+  }
+
+  export class Size {
+    constructor(width: number, height: number);
+  }
+
+  export class Point {
+    constructor(x: number, y: number);
+  }
+
   export class MarkerClusterer {
     constructor(options: {
-      map: kakao.maps.Map;
+      map: Map;
       averageCenter?: boolean;
       minLevel?: number;
       gridSize?: number;
       minClusterSize?: number;
     });
-    addMarkers(markers: kakao.maps.Marker[]): void;
+    addMarkers(markers: Marker[]): void;
     clear(): void;
   }
 
-  // 2. 기존 Marker 인터페이스를 확장하여 @types/kakao__maps에 누락된 함수들을 추가합니다.
-  // `Size`, `Point`, `MarkerImage` 등은 기본 타입에 이미 존재하므로 재정의하지 않습니다.
-  // 재정의할 경우 타입 충돌로 인해 기존 타입 전체가 무시될 수 있습니다.
+  // --- Interfaces (for extending class instance methods) ---
   export interface Marker {
     setZIndex(zIndex: number): void;
-    setMap(map: kakao.maps.Map | null): void;
-    setImage(image: kakao.maps.MarkerImage): void;
+    setMap(map: Map | null): void;
+    setImage(image: MarkerImage): void;
   }
 
-  // 3. 기존 Map 인터페이스를 확장하여 누락된 panTo 함수를 추가합니다.
-  export interface Map {
-    panTo(latlng: kakao.maps.LatLng): void;
+  // --- Namespaces for other services ---
+  export namespace event {
+    function addListener(target: any, type: string, handler: (...args: any[]) => void): void;
   }
 }
