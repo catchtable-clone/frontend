@@ -3,12 +3,29 @@
 /// <reference types="@types/kakao__maps" />
 
 declare namespace kakao.maps {
-  // 기존 Marker 인터페이스를 확장하여 setZIndex 함수를 추가합니다.
+  // --- 기존 타입과 병합하기 위해 수동으로 추가하는 타입 정의 ---
+
+  // 1. MarkerClusterer 클래스
+  // @types/kakao__maps 패키지에 누락된 'clusterer' 라이브러리의 타입입니다.
+  // 빌드 오류를 해결하기 위해 사용하는 기능(생성자, addMarkers, clear)을 직접 정의합니다.
+  class MarkerClusterer {
+    constructor(options: {
+      map: kakao.maps.Map;
+      averageCenter?: boolean;
+      minLevel?: number;
+      gridSize?: number;
+      minClusterSize?: number;
+    });
+    addMarkers(markers: kakao.maps.Marker[]): void;
+    clear(): void;
+  }
+
+  // 2. 기존 Marker 인터페이스를 확장하여 setZIndex 함수를 추가합니다.
   interface Marker {
     setZIndex(zIndex: number): void;
   }
 
-  // 기존 Map 인터페이스를 확장하여 panTo 함수를 추가합니다.
+  // 3. 기존 Map 인터페이스를 확장하여 panTo 함수를 추가합니다.
   interface Map {
     panTo(latlng: kakao.maps.LatLng): void;
   }
