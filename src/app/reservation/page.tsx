@@ -14,31 +14,58 @@ import {
   CheckCircle,
   Mail,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Header from '@/components/common/Header';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import CenteredModal from '@/components/common/CenteredModal';
 import BottomSheet from '@/components/common/BottomSheet';
-import { mockStores, mockCoupons } from '@/lib/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { getMyCoupons } from '@/lib/api/coupons';
 import { formatDate } from '@/lib/utils';
+import { useCreateReservationMutation, useUpdateReservationMutation } from '@/lib/reservationQuery';
+import { useStoreDetailQuery } from '@/lib/storeQuery';
+import { useAuthStore } from '@/stores/authStore';
 import type { Coupon } from '@/types/store';
 
 function ReservationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const userId = useAuthStore((s) => s.userId);
 
   const storeId = Number(searchParams.get('storeId'));
   const date = searchParams.get('date') || '';
   const time = searchParams.get('time') || '';
+  const remainId = Number(searchParams.get('remainId'));
   const changeFrom = searchParams.get('changeFrom');
   const isChange = !!changeFrom;
 
-  const store = mockStores.find((s) => s.id === storeId);
-  const availableCoupons = mockCoupons.filter((c) => c.status === 'AVAILABLE');
+  const { data: store, isLoading: isStoreLoading } = useStoreDetailQuery(String(storeId));
+
+  const { data: myCoupons = [] } = useQuery({
+    queryKey: ['myCoupons', userId],
+    queryFn: getMyCoupons,
+    enabled: !!userId,
+  });
+  const availableCoupons = myCoupons.filter((c) => c.status === 'AVAILABLE');
+
+  const { mutate: createReservation, isPending } = useCreateReservationMutation();
+  const { mutate: updateReservation, isPending: isUpdatePending } = useUpdateReservationMutation();
 
   const [guestCount, setGuestCount] = useState(2);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [showCouponSheet, setShowCouponSheet] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  if (isStoreLoading) {
+    return (
+      <>
+        <Header title="예약" showBack />
+        <main className="flex flex-1 items-center justify-center">
+          <LoadingSpinner message="매장 정보를 불러오는 중..." />
+        </main>
+      </>
+    );
+  }
 
   if (!store || !date || !time) {
     return (
@@ -51,8 +78,41 @@ function ReservationContent() {
     );
   }
 
+  if (!remainId) {
+    return (
+      <>
+        <Header title="예약" showBack />
+        <main className="flex flex-1 items-center justify-center">
+          <p className="text-sm text-gray-400">선택된 시간대의 정보(remainId)가 없습니다</p>
+        </main>
+      </>
+    );
+  }
+
   const handleConfirm = () => {
-    setShowSuccess(true);
+    if (!userId) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+    if (isChange && changeFrom) {
+      updateReservation(
+        {
+          reservationId: Number(changeFrom),
+          data: { remainId, guestCount, couponId: selectedCoupon?.id },
+        },
+        {
+          onSuccess: () => setShowSuccess(true),
+          // 에러는 axios 인터셉터가 토스트로 처리
+        }
+      );
+    } else {
+      createReservation(
+        { storeId, date, time, guestCount, remainId, couponId: selectedCoupon?.id },
+        {
+          onSuccess: () => setShowSuccess(true),
+        }
+      );
+    }
   };
 
   return (
@@ -63,8 +123,7 @@ function ReservationContent() {
         {/* 매장 정보 */}
         <section className="border-b border-gray-100 px-4 py-5">
           <span className="text-xs text-gray-400">{store.category}</span>
-          <h2 className="text-lg font-bold text-gray-900">{store.name}</h2>
-          <p className="mt-1 text-sm text-gray-500">{store.address}</p>
+          <h2 className="text-lg font-bold text-gray-900">{store.storeName}</h2>
         </section>
 
         {/* 예약 정보 */}
@@ -151,9 +210,12 @@ function ReservationContent() {
       <div className="sticky bottom-0 border-t border-gray-200 bg-white px-4 py-3">
         <button
           onClick={handleConfirm}
-          className="w-full rounded-lg bg-orange-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+          disabled={isPending || isUpdatePending}
+          className={`w-full rounded-lg py-3 text-sm font-semibold text-white transition-colors ${
+            (isPending || isUpdatePending) ? 'cursor-not-allowed bg-gray-400' : 'bg-orange-500 hover:bg-orange-600'
+          }`}
         >
-          {isChange ? '예약 변경하기' : '예약 확정하기'}
+          {(isPending || isUpdatePending) ? '예약 처리 중...' : isChange ? '예약 변경하기' : '예약 확정하기'}
         </button>
       </div>
 
@@ -162,11 +224,11 @@ function ReservationContent() {
         <CenteredModal onClose={() => router.push('/reservations')}>
           <div className="text-center">
             <CheckCircle size={48} className="mx-auto text-green-500" />
-            <h3 className="mt-3 text-lg font-semibold text-gray-900">
+            <h3 className="mt-4 text-lg font-semibold text-gray-900">
               예약이 {isChange ? '변경' : '확정'}되었습니다
             </h3>
             <div className="mt-3 rounded-lg bg-gray-50 px-4 py-3 text-left">
-              <p className="text-sm font-medium text-gray-900">{store.name}</p>
+              <p className="text-sm font-medium text-gray-900">{store.storeName}</p>
               <p className="mt-1 text-sm text-gray-600">
                 {formatDate(date)} {time} / {guestCount}명
               </p>

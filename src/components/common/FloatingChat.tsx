@@ -299,9 +299,9 @@ export default function FloatingChat() {
                         : 'rounded-bl-md bg-white text-gray-900 shadow-sm'
                     }`}
                   >
-                    {msg.content.split('\n').map((line, i) => (
+                    {msg.content.split('\n').map((line: string, i: number) => (
                       <span key={i}>
-                        {line.split(/(\*\*.*?\*\*)/).map((part, j) =>
+                        {line.split(/(\*\*.*?\*\*)/).map((part: string, j: number) =>
                           part.startsWith('**') && part.endsWith('**') ? (
                             <strong key={j}>{part.slice(2, -2)}</strong>
                           ) : (

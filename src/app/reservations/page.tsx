@@ -18,22 +18,30 @@ import StarRating from '@/components/common/StarRating';
 import BottomSheet from '@/components/common/BottomSheet';
 import Tabs from '@/components/common/Tabs';
 import LoginRequired from '@/components/common/LoginRequired';
-import { mockReservations, mockVacancySubscriptions } from '@/lib/mockData';
 import { formatDate } from '@/lib/utils';
+import { useReservationsQuery, useCancelReservationMutation } from '@/lib/reservationQuery';
+import {
+  useCreateReviewMutation,
+  useMyReviewsQuery,
+  useUpdateReviewMutation,
+} from '@/lib/reviewQuery';
+import { useMyVacanciesQuery, useCancelVacancyMutation } from '@/lib/vacancyQuery';
 import { useAuthStore } from '@/stores/authStore';
-import type { Reservation, ReservationStatus, Review, VacancySubscription } from '@/types/store';
+import type { Reservation, ReservationStatus, VacancySubscription } from '@/types/store';
+import toast from 'react-hot-toast';
 
 const STATUS_CONFIG: Record<
-  ReservationStatus,
+  string,
   { label: string; color: string; bg: string }
 > = {
+  PENDING: { label: '예약 대기', color: 'text-blue-600', bg: 'bg-blue-50' },
   CONFIRMED: {
     label: '예약 확정',
     color: 'text-orange-600',
     bg: 'bg-orange-50',
   },
   VISITED: { label: '방문 완료', color: 'text-green-600', bg: 'bg-green-50' },
-  CANCELLED: { label: '취소됨', color: 'text-gray-500', bg: 'bg-gray-100' },
+  CANCELED: { label: '취소됨', color: 'text-gray-500', bg: 'bg-gray-100' },
   NOSHOW: { label: '노쇼', color: 'text-red-600', bg: 'bg-red-50' },
 };
 
@@ -41,16 +49,21 @@ function ReservationCard({
   reservation,
   onCancel,
   onWriteReview,
+  onEditReview,
+  isReviewed,
 }: {
   reservation: Reservation;
   onCancel: (id: number) => void;
   onWriteReview: (reservation: Reservation) => void;
+  onEditReview: (reservation: Reservation) => void;
+  isReviewed: boolean;
 }) {
   const router = useRouter();
-  const { label, color, bg } = STATUS_CONFIG[reservation.status];
-  const isUpcoming = reservation.status === 'CONFIRMED';
+  // 백엔드에서 매핑되지 않은 상태값이 오더라도 UI가 터지지 않도록 안전한 폴백(fallback)을 추가합니다.
+  const { label, color, bg } = STATUS_CONFIG[reservation.status] || STATUS_CONFIG['CONFIRMED'];
+  const isUpcoming = reservation.status === 'PENDING' || reservation.status === 'CONFIRMED';
   const isVisited = reservation.status === 'VISITED';
-  const hasReview = !!reservation.reviewId;
+  const hasReview = isReviewed; // 백엔드 응답이 아닌 프론트엔드 교차 검증 결과만 사용
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -96,7 +109,7 @@ function ReservationCard({
           <button
             onClick={() =>
               router.push(
-                `/reservation?storeId=${reservation.storeId}&date=${reservation.date}&time=${reservation.time}&changeFrom=${reservation.id}`,
+              `/stores/${reservation.storeId}?changeFrom=${reservation.id}`
               )
             }
             className="flex-1 rounded-lg border border-blue-200 py-2 text-sm font-medium text-blue-500 hover:bg-blue-50"
@@ -115,9 +128,18 @@ function ReservationCard({
       {isVisited && (
         <div className="mt-4">
           {hasReview ? (
-            <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-600">
-              <Check size={16} />
-              <span>리뷰 작성 완료</span>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-600">
+                <Check size={16} />
+                <span>리뷰 작성 완료</span>
+              </div>
+              <button
+                onClick={() => onEditReview(reservation)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <Pencil size={14} />
+                리뷰 수정
+              </button>
             </div>
           ) : (
             <button
@@ -139,24 +161,39 @@ export default function ReservationsPage() {
   const { accessToken } = useAuthStore();
   const isLoggedIn = !!accessToken;
 
-  const [tab, setTab] = useState<'upcoming' | 'past' | 'vacancy'>('upcoming');
-  const [reservations, setReservations] =
-    useState<Reservation[]>(mockReservations);
-  const [vacancies, setVacancies] = useState<VacancySubscription[]>(mockVacancySubscriptions);
+  const [tab, setTab] = useState<'upcoming' | 'visited' | 'canceled' | 'vacancy'>('upcoming');
+
+  const userId = useAuthStore((s) => s.userId) ?? 0;
+  const { data: reservations = [], isLoading } = useReservationsQuery();
+  const { mutate: cancelReservation } = useCancelReservationMutation();
+  const { data: vacancies = [], isLoading: isVacancyLoading } = useMyVacanciesQuery();
+  const { mutate: cancelVacancy } = useCancelVacancyMutation();
   const [cancelTarget, setCancelTarget] = useState<number | null>(null);
   const [vacancyCancelTarget, setVacancyCancelTarget] = useState<number | null>(null);
 
-  // 리뷰 작성 상태
+  // 리뷰 작성/수정 상태
   const [reviewTarget, setReviewTarget] = useState<Reservation | null>(null);
+  const [reviewMode, setReviewMode] = useState<'create' | 'edit'>('create');
+  const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState('');
-  const [reviewImages, setReviewImages] = useState<string[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewImages, setReviewImages] = useState<{ file: File; url: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { mutate: createReview, isPending: isCreatePending } = useCreateReviewMutation();
+  const { mutate: updateReview, isPending: isUpdatePending } = useUpdateReviewMutation();
+  const isReviewPending = isCreatePending || isUpdatePending;
 
-  const upcoming = reservations.filter((r) => r.status === 'CONFIRMED');
-  const past = reservations.filter((r) => r.status !== 'CONFIRMED');
-  const currentList = tab === 'upcoming' ? upcoming : past;
+  // 내가 작성한 리뷰 목록을 불러와서 이미 리뷰를 작성한 예약인지 확인합니다.
+  const { data: myReviews = [] } = useMyReviewsQuery();
+
+  // reservationId → 리뷰 객체 Map (수정 시 prefill용)
+  const reviewByReservationId = new Map(myReviews.map((r) => [r.reservationId, r]));
+  const reviewedReservationIds = new Set(reviewByReservationId.keys());
+
+  const upcoming = reservations.filter((r) => r.status === 'PENDING' || r.status === 'CONFIRMED');
+  const visited = reservations.filter((r) => r.status === 'VISITED');
+  const canceled = reservations.filter((r) => r.status === 'CANCELED' || r.status === 'NOSHOW');
+  const currentList = tab === 'upcoming' ? upcoming : tab === 'visited' ? visited : canceled;
 
   const handleCancel = (id: number) => {
     setCancelTarget(id);
@@ -164,24 +201,43 @@ export default function ReservationsPage() {
 
   const confirmCancel = () => {
     if (cancelTarget === null) return;
-    setReservations((prev) =>
-      prev.map((r) =>
-        r.id === cancelTarget ? { ...r, status: 'CANCELLED' as const } : r,
-      ),
-    );
-    setCancelTarget(null);
+    cancelReservation(cancelTarget, {
+      onSuccess: () => {
+        toast.success('예약이 취소되었습니다.');
+        setCancelTarget(null);
+      },
+      onError: () => {
+        // 토스트는 axios 인터셉터에서 처리됨
+        setCancelTarget(null);
+      },
+    });
   };
 
   const openReviewModal = (reservation: Reservation) => {
+    setReviewMode('create');
+    setEditingReviewId(null);
     setReviewTarget(reservation);
     setReviewRating(0);
     setReviewContent('');
     setReviewImages([]);
   };
 
+  const openEditReviewModal = (reservation: Reservation) => {
+    const existing = reviewByReservationId.get(reservation.id);
+    if (!existing) return;
+    setReviewMode('edit');
+    setEditingReviewId(existing.reviewId);
+    setReviewTarget(reservation);
+    setReviewRating(existing.star ?? 0);
+    setReviewContent(existing.content ?? '');
+    setReviewImages([]);
+  };
+
   const closeReviewModal = () => {
-    reviewImages.forEach((url) => URL.revokeObjectURL(url));
+    reviewImages.forEach((img) => URL.revokeObjectURL(img.url));
     setReviewTarget(null);
+    setReviewMode('create');
+    setEditingReviewId(null);
     setReviewRating(0);
     setReviewContent('');
     setReviewImages([]);
@@ -194,39 +250,62 @@ export default function ReservationsPage() {
     const remaining = 5 - reviewImages.length;
     const selected = Array.from(files).slice(0, remaining);
 
-    const newUrls = selected.map((file) => URL.createObjectURL(file));
-    setReviewImages((prev) => [...prev, ...newUrls].slice(0, 5));
+    const newImages = selected.map((file) => ({
+      file,
+      url: URL.createObjectURL(file),
+    }));
+    setReviewImages((prev) => [...prev, ...newImages].slice(0, 5));
 
     e.target.value = '';
   };
 
   const removeImage = (index: number) => {
     setReviewImages((prev) => {
-      URL.revokeObjectURL(prev[index]);
+      URL.revokeObjectURL(prev[index].url);
       return prev.filter((_, i) => i !== index);
     });
   };
 
   const submitReview = () => {
-    if (!reviewTarget || reviewRating === 0) return;
+    if (!reviewTarget || reviewRating === 0 || !userId) return;
 
-    const newReview: Review = {
-      id: reviews.length + 1,
-      reservationId: reviewTarget.id,
-      storeId: reviewTarget.storeId,
-      rating: reviewRating,
-      content: reviewContent,
-      imageUrls: reviewImages,
-      createdAt: new Date().toISOString(),
-    };
+    if (reviewMode === 'edit' && editingReviewId !== null) {
+      updateReview(
+        {
+          reviewId: editingReviewId,
+          data: { star: reviewRating, content: reviewContent },
+        },
+        {
+          onSuccess: () => {
+            toast.success('리뷰가 수정되었습니다.');
+            closeReviewModal();
+          },
+        },
+      );
+      return;
+    }
 
-    setReviews((prev) => [...prev, newReview]);
-    setReservations((prev) =>
-      prev.map((r) =>
-        r.id === reviewTarget.id ? { ...r, reviewId: newReview.id } : r,
-      ),
+    createReview(
+      {
+        reservationId: reviewTarget.id,
+        storeId: reviewTarget.storeId,
+        rating: reviewRating,
+        content: reviewContent,
+        images: reviewImages.map((img) => img.file),
+      },
+      {
+        onSuccess: () => {
+          toast.success('리뷰가 등록되었습니다.');
+          closeReviewModal();
+        },
+        onError: (error: any) => {
+          // 일반 에러는 axios 인터셉터가 토스트로 처리. 여기서는 모달 닫기만 결정.
+          if (error?.response?.data?.code === 'REVIEW_ALREADY_EXISTS') {
+            closeReviewModal();
+          }
+        },
+      }
     );
-    closeReviewModal();
   };
 
   if (!isLoggedIn) {
@@ -249,24 +328,32 @@ export default function ReservationsPage() {
         {/* 탭 */}
         <Tabs
           items={[
-            { key: 'upcoming', label: `예정된 예약 (${upcoming.length})` },
-            { key: 'past', label: `지난 예약 (${past.length})` },
+            { key: 'upcoming', label: `방문 예정 (${upcoming.length})` },
+            { key: 'visited', label: `방문 완료 (${visited.length})` },
+            { key: 'canceled', label: `취소/노쇼 (${canceled.length})` },
             { key: 'vacancy', label: `빈자리 알림 (${vacancies.length})` },
           ]}
           activeKey={tab}
-          onChange={(key) => setTab(key as 'upcoming' | 'past' | 'vacancy')}
+          onChange={(key) => setTab(key as 'upcoming' | 'visited' | 'canceled' | 'vacancy')}
         />
 
         {/* 예약 목록 */}
         {tab !== 'vacancy' && (
           <div className="flex flex-col gap-3 px-4 py-4">
-            {currentList.length === 0 ? (
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent"></div>
+                <p className="mt-4 text-sm text-gray-400">예약 내역을 불러오는 중...</p>
+              </div>
+            ) : currentList.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-16">
                 <CalendarDays size={40} className="text-gray-300" />
                 <p className="text-sm text-gray-400">
                   {tab === 'upcoming'
-                    ? '예정된 예약이 없습니다'
-                    : '지난 예약 이력이 없습니다'}
+                    ? '방문 예정인 예약이 없습니다'
+                    : tab === 'visited'
+                      ? '방문 완료된 내역이 없습니다'
+                      : '취소/노쇼된 예약이 없습니다'}
                 </p>
                 {tab === 'upcoming' && (
                   <button
@@ -284,6 +371,8 @@ export default function ReservationsPage() {
                   reservation={reservation}
                   onCancel={handleCancel}
                   onWriteReview={openReviewModal}
+                  onEditReview={openEditReviewModal}
+                  isReviewed={reviewedReservationIds.has(reservation.id)}
                 />
               ))
             )}
@@ -293,7 +382,12 @@ export default function ReservationsPage() {
         {/* 빈자리 알림 */}
         {tab === 'vacancy' && (
           <div className="flex flex-col gap-3 px-4 py-4">
-            {vacancies.length === 0 ? (
+            {isVacancyLoading ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent"></div>
+                <p className="mt-4 text-sm text-gray-400">알림 내역을 불러오는 중...</p>
+              </div>
+            ) : vacancies.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-16">
                 <CalendarDays size={40} className="text-gray-300" />
                 <p className="text-sm text-gray-400">
@@ -313,16 +407,16 @@ export default function ReservationsPage() {
                 </p>
                 {vacancies.map((sub) => (
                   <div
-                    key={sub.id}
+                    key={sub.vacancyId}
                     className="rounded-xl border border-gray-200 bg-white p-4"
                   >
                     <div className="flex items-start justify-between">
                       <button
-                        onClick={() => router.push(`/stores/${sub.storeId}`)}
+                        onClick={() => sub.storeId && router.push(`/stores/${sub.storeId}`)}
                         className="text-left"
                       >
                         <span className="text-xs text-gray-400">
-                          {sub.storeCategory}
+                          {sub.storeCategory || '식당'}
                         </span>
                         <h3 className="text-base font-semibold text-gray-900">
                           {sub.storeName}
@@ -335,22 +429,22 @@ export default function ReservationsPage() {
                     <div className="mt-3 flex flex-col gap-1.5">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <CalendarDays size={14} className="text-gray-400" />
-                        <span>{formatDate(sub.date)}</span>
+                        <span>{formatDate(sub.remainDate)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Clock size={14} className="text-gray-400" />
-                        <span>{sub.time}</span>
+                        <span>{sub.remainTime}</span>
                       </div>
                     </div>
                     <div className="mt-4 flex gap-2">
                       <button
-                        onClick={() => router.push(`/stores/${sub.storeId}`)}
+                        onClick={() => sub.storeId && router.push(`/stores/${sub.storeId}`)}
                         className="flex-1 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                       >
                         매장 보기
                       </button>
                       <button
-                        onClick={() => setVacancyCancelTarget(sub.id)}
+                        onClick={() => setVacancyCancelTarget(sub.vacancyId)}
                         className="flex-1 rounded-lg border border-red-200 py-2 text-sm font-medium text-red-500 hover:bg-red-50"
                       >
                         구독 취소
@@ -384,14 +478,21 @@ export default function ReservationsPage() {
           message="취소하면 해당 시간대의 빈자리 알림을 받을 수 없습니다."
           confirmLabel="취소하기"
           onConfirm={() => {
-            setVacancies((prev) => prev.filter((s) => s.id !== vacancyCancelTarget));
-            setVacancyCancelTarget(null);
+            if (vacancyCancelTarget) {
+              cancelVacancy(vacancyCancelTarget, {
+                onSuccess: () => {
+                  toast.success('빈자리 알림이 취소되었습니다.');
+                  setVacancyCancelTarget(null);
+                },
+                onError: () => setVacancyCancelTarget(null),
+              });
+            }
           }}
           onCancel={() => setVacancyCancelTarget(null)}
         />
       )}
 
-      {/* 리뷰 작성 모달 */}
+      {/* 리뷰 작성/수정 모달 */}
       {reviewTarget && (
         <BottomSheet onClose={closeReviewModal}>
           <button
@@ -439,7 +540,8 @@ export default function ReservationsPage() {
               className="mb-4 w-full resize-none rounded-lg border border-gray-200 px-3 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
             />
 
-            {/* 이미지 첨부 */}
+            {/* 이미지 첨부 (신규 작성 시에만) */}
+            {reviewMode === 'create' && (
             <div className="mb-5">
               <div className="flex items-center gap-3">
                 {reviewImages.length < 5 && (
@@ -462,10 +564,10 @@ export default function ReservationsPage() {
                   onChange={handleImageSelect}
                   className="hidden"
                 />
-                {reviewImages.map((src, idx) => (
+                {reviewImages.map((img, idx) => (
                   <div key={idx} className="relative h-16 w-16 flex-shrink-0">
                     <img
-                      src={src}
+                      src={img.url}
                       alt={`리뷰 이미지 ${idx + 1}`}
                       className="h-full w-full rounded-lg object-cover"
                     />
@@ -480,18 +582,25 @@ export default function ReservationsPage() {
                 ))}
               </div>
             </div>
+            )}
 
             {/* 제출 버튼 */}
             <button
               onClick={submitReview}
-              disabled={reviewRating === 0}
+              disabled={reviewRating === 0 || isReviewPending}
               className={`w-full rounded-lg py-3 text-sm font-semibold text-white transition-colors ${
-                reviewRating > 0
+                reviewRating > 0 && !isReviewPending
                   ? 'bg-orange-500 hover:bg-orange-600'
                   : 'bg-gray-300'
               }`}
             >
-              리뷰 등록
+              {isReviewPending
+                ? reviewMode === 'edit'
+                  ? '수정 중...'
+                  : '등록 중...'
+                : reviewMode === 'edit'
+                  ? '리뷰 수정'
+                  : '리뷰 등록'}
             </button>
         </BottomSheet>
       )}

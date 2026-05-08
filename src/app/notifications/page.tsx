@@ -1,69 +1,106 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Bell,
   CalendarCheck,
+  CalendarX,
+  CheckCircle2,
   Clock,
   MapPin,
+  RefreshCw,
   CheckCheck,
+  Loader2, // 로딩 스피너를 위해 추가
 } from 'lucide-react';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
 import FilterChip from '@/components/common/FilterChip';
-import { mockNotifications } from '@/lib/mockData';
 import { timeAgo } from '@/lib/utils';
 import type { Notification, NotificationType } from '@/types/store';
+import {
+  useNotificationsQuery,
+  useMarkAsReadMutation,
+  useMarkAllAsReadMutation,
+} from '../../lib/notificationQuery'; // 상대 경로 임포트: tsconfig.json alias 문제 우회
+import LoginRequired from '@/components/common/LoginRequired';
+import { useAuthStore } from '@/stores/authStore';
 
 const TYPE_CONFIG: Record<
   NotificationType,
   { icon: typeof CalendarCheck; color: string; bg: string }
 > = {
-  RESERVATION_CONFIRMED: {
-    icon: CalendarCheck,
-    color: 'text-green-600',
-    bg: 'bg-green-50',
-  },
-  RESERVATION_REMIND: {
-    icon: Clock,
-    color: 'text-blue-600',
-    bg: 'bg-blue-50',
-  },
   VACANCY: {
     icon: MapPin,
     color: 'text-orange-600',
     bg: 'bg-orange-50',
   },
+  RESERVATION_CONFIRMED: {
+    icon: CalendarCheck,
+    color: 'text-green-600',
+    bg: 'bg-green-50',
+  },
+  RESERVATION_CANCELED: {
+    icon: CalendarX,
+    color: 'text-red-600',
+    bg: 'bg-red-50',
+  },
+  RESERVATION_CHANGED: {
+    icon: RefreshCw,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50',
+  },
+  RESERVATION_VISITED: {
+    icon: CheckCircle2,
+    color: 'text-purple-600',
+    bg: 'bg-purple-50',
+  },
+  RESERVATION_REMINDER: {
+    icon: Clock,
+    color: 'text-blue-600',
+    bg: 'bg-blue-50',
+  },
 };
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [notifications, setNotifications] =
-    useState<Notification[]>(mockNotifications);
+  const { accessToken } = useAuthStore();
+  const isLoggedIn = !!accessToken;
+
+  // React Query 훅을 사용하여 알림 목록을 가져옵니다.
+  const {
+    data: notificationsData,
+    isLoading,
+    isError,
+    error,
+  } = useNotificationsQuery();
+  const notifications = notificationsData?.content || []; // 데이터가 없으면 빈 배열
+
+  // 알림 읽음 처리 뮤테이션 훅
+  const markAsReadMutation = useMarkAsReadMutation();
+  const markAllAsReadMutation = useMarkAllAsReadMutation();
+
   const [filter, setFilter] = useState<NotificationType | 'ALL'>('ALL');
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const filtered =
     filter === 'ALL'
-      ? notifications
-      : notifications.filter((n) => n.type === filter);
+      ? notifications // API에서 가져온 데이터 사용
+      : notifications.filter((n) => n.type === filter); // API 데이터 필터링
 
-  const markAsRead = (id: number) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
-    );
+  const handleMarkAsRead = (id: number) => {
+    markAsReadMutation.mutate(id); // 뮤테이션 실행
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  const handleMarkAllAsRead = () => {
+    markAllAsReadMutation.mutate(); // 뮤테이션 실행
   };
 
   const handleClick = (notification: Notification) => {
-    markAsRead(notification.id);
+    handleMarkAsRead(notification.notificationId); // 뮤테이션 사용
     if (notification.type === 'VACANCY') {
-      router.push(`/stores/${notification.storeId}`);
+      router.push(`/stores/${notification.relatedItemId}`);
     } else {
       router.push('/reservations');
     }
@@ -71,10 +108,25 @@ export default function NotificationsPage() {
 
   const filters: { key: NotificationType | 'ALL'; label: string }[] = [
     { key: 'ALL', label: '전체' },
-    { key: 'RESERVATION_CONFIRMED', label: '예약 확정' },
-    { key: 'RESERVATION_REMIND', label: '리마인드' },
     { key: 'VACANCY', label: '빈자리' },
+    { key: 'RESERVATION_CONFIRMED', label: '예약 확정' },
+    { key: 'RESERVATION_CANCELED', label: '예약 취소' },
+    { key: 'RESERVATION_CHANGED', label: '예약 변경' },
+    { key: 'RESERVATION_VISITED', label: '방문 완료' },
+    { key: 'RESERVATION_REMINDER', label: '리마인드' },
   ];
+
+  if (!isLoggedIn) {
+    return (
+      <>
+        <Header title="알림" />
+        <main className="flex-1">
+          <LoginRequired redirectTo="/notifications" />
+        </main>
+        <BottomNav />
+      </>
+    );
+  }
 
   return (
     <>
@@ -82,8 +134,8 @@ export default function NotificationsPage() {
 
       <main className="flex-1">
         {/* 필터 + 모두 읽음 */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <div className="flex gap-2">
+        <div className="flex items-center gap-3 border-b border-gray-100 px-4 py-3">
+          <div className="flex flex-1 gap-2 overflow-x-auto whitespace-nowrap">
             {filters.map(({ key, label }) => (
               <FilterChip
                 key={key}
@@ -93,15 +145,14 @@ export default function NotificationsPage() {
               />
             ))}
           </div>
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllAsRead}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-orange-500"
-            >
-              <CheckCheck size={14} />
-              모두 읽음
-            </button>
-          )}
+          <button
+            onClick={handleMarkAllAsRead}
+            disabled={unreadCount === 0}
+            className="flex flex-shrink-0 items-center gap-1 whitespace-nowrap text-xs text-gray-500 hover:text-orange-500 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:text-gray-300"
+          >
+            <CheckCheck size={14} />
+            모두 읽음
+          </button>
         </div>
 
         {/* 알림 목록 */}
@@ -118,10 +169,10 @@ export default function NotificationsPage() {
 
               return (
                 <button
-                  key={notification.id}
+                  key={notification.notificationId}
                   onClick={() => handleClick(notification)}
                   className={`flex gap-3 border-b border-gray-50 px-4 py-4 text-left transition-colors hover:bg-gray-50 ${
-                    !notification.isRead ? 'bg-orange-50/30' : ''
+                    !notification.read ? 'bg-orange-50/30' : ''
                   }`}
                 >
                   {/* 아이콘 */}
@@ -137,7 +188,7 @@ export default function NotificationsPage() {
                       <span className="text-sm font-semibold text-gray-900">
                         {notification.title}
                       </span>
-                      {!notification.isRead && (
+                      {!notification.read && (
                         <span className="h-2 w-2 flex-shrink-0 rounded-full bg-orange-500" />
                       )}
                     </div>
@@ -145,7 +196,7 @@ export default function NotificationsPage() {
                       {notification.storeName}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-500">
-                      {notification.message}
+                      {notification.content}
                     </p>
                     <p className="mt-1 text-[11px] text-gray-400">
                       {timeAgo(notification.createdAt)}

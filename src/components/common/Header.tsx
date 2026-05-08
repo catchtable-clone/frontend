@@ -4,15 +4,15 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, Map, ArrowLeft, UtensilsCrossed, X, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { mockStores } from '@/lib/mockData';
-import { filterStores } from '@/lib/utils';
-import type { Store } from '@/types/store';
+import { useStoresQuery } from '@/lib/storeQuery';
+import { toCategoryLabel } from '@/lib/storeEnum';
+import type { StoreSummary } from '@/types/store';
 
 function SearchDropdown({
   stores,
   onSelect,
 }: {
-  stores: Store[];
+  stores: StoreSummary[];
   onSelect?: () => void;
 }) {
   return (
@@ -20,23 +20,32 @@ function SearchDropdown({
       {stores.length > 0 ? (
         stores.map((store) => (
           <Link
-            key={store.id}
-            href={`/stores/${store.id}`}
+            key={store.storeId}
+            href={`/stores/${store.storeId}`}
             onClick={onSelect}
             className="flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-gray-50"
           >
-            <div className="h-9 w-9 flex-shrink-0 rounded-lg bg-gray-200" />
+            <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200">
+              <img
+                src={store.storeImage || '/images/ready_image.png'}
+                alt={store.storeName}
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/images/ready_image.png';
+                }}
+              />
+            </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium text-gray-900">{store.name}</p>
+              <p className="text-sm font-medium text-gray-900">{store.storeName}</p>
               <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span>{store.category}</span>
+                <span>{toCategoryLabel(store.category)}</span>
                 <span>·</span>
                 <span className="flex items-center gap-0.5">
                   <Star
                     size={10}
                     className="fill-orange-400 text-orange-400"
                   />
-                  {store.rating}
+                  {store.averageStar.toFixed(1)}
                 </span>
                 <span>·</span>
                 <span className="truncate">{store.address}</span>
@@ -76,6 +85,13 @@ export default function Header({
   const [edited, setEdited] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const trimmed = query.trim();
+  // 검색어가 있을 때만 백엔드 호출 (size 5로 제한)
+  const { data: searchResults = [] } = useStoresQuery(
+    { name: trimmed, size: 5 },
+    trimmed.length > 0,
+  );
+
   useEffect(() => {
     setQuery(defaultQuery);
   }, [defaultQuery]);
@@ -88,7 +104,6 @@ export default function Header({
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = query.trim();
     if (trimmed) {
       if (onSearch) {
         onSearch(trimmed);
@@ -155,9 +170,9 @@ export default function Header({
             </form>
 
             {/* 검색 결과 드롭다운 */}
-            {query.trim() && (
+            {trimmed && (
               <SearchDropdown
-                stores={filterStores(mockStores, query)}
+                stores={searchResults}
                 onSelect={() => {
                   setSearchOpen(false);
                   setQuery('');
@@ -206,8 +221,8 @@ export default function Header({
         </form>
 
         {/* 검색 드롭다운 */}
-        {edited && query.trim() && (
-          <SearchDropdown stores={filterStores(mockStores, query)} />
+        {edited && trimmed && (
+          <SearchDropdown stores={searchResults} />
         )}
       </header>
     );
