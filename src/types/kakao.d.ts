@@ -19,14 +19,44 @@ declare namespace kakao.maps {
     addMarkers(markers: kakao.maps.Marker[]): void;
     clear(): void;
   }
+  
+  // 2. MarkerImage, Size, Point 클래스
+  // 커스텀 마커 이미지를 사용할 때 필요한 타입들입니다.
+  class Size {
+    constructor(width: number, height: number);
+    width: number;
+    height: number;
+  }
 
-  // 2. 기존 Marker 인터페이스를 확장하여 setZIndex 함수를 추가합니다.
+  class Point {
+    constructor(x: number, y: number);
+    x: number;
+    y: number;
+  }
+
+  class MarkerImage {
+    constructor(
+      src: string,
+      size: kakao.maps.Size,
+      options?: {
+        alt?: string;
+        coords?: string;
+        offset?: kakao.maps.Point;
+        shape?: string;
+        spriteOrigin?: kakao.maps.Point;
+        spriteSize?: kakao.maps.Size;
+      },
+    );
+  }
+
+  // 3. 기존 Marker 인터페이스를 확장하여 누락된 함수들을 추가합니다.
   interface Marker {
     setZIndex(zIndex: number): void;
     setMap(map: kakao.maps.Map | null): void;
+    setImage(image: kakao.maps.MarkerImage): void;
   }
 
-  // 3. 기존 Map 인터페이스를 확장하여 panTo 함수를 추가합니다.
+  // 4. 기존 Map 인터페이스를 확장하여 panTo 함수를 추가합니다.
   interface Map {
     panTo(latlng: kakao.maps.LatLng): void;
   }
