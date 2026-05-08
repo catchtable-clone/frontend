@@ -13,11 +13,16 @@ declare namespace kakao.maps {
   // We must re-declare classes used with `new`
   export class LatLng {
     constructor(lat: number, lng: number);
+    getLat(): number;
+    getLng(): number;
   }
 
   export class Map {
     constructor(container: HTMLElement, options: any);
     panTo(latlng: LatLng): void;
+    getBounds(): LatLngBounds;
+    getCenter(): LatLng;
+    getLevel(): number;
   }
 
   export class Marker {
@@ -46,6 +51,11 @@ declare namespace kakao.maps {
     });
     addMarkers(markers: Marker[]): void;
     clear(): void;
+  }
+
+  export class LatLngBounds {
+    getSouthWest(): LatLng;
+    getNorthEast(): LatLng;
   }
 
   // --- Interfaces (for extending class instance methods) ---
