@@ -23,6 +23,7 @@ declare namespace kakao.maps {
   // 2. 기존 Marker 인터페이스를 확장하여 setZIndex 함수를 추가합니다.
   interface Marker {
     setZIndex(zIndex: number): void;
+    setMap(map: kakao.maps.Map | null): void;
   }
 
   // 3. 기존 Map 인터페이스를 확장하여 panTo 함수를 추가합니다.
