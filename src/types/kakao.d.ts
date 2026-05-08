@@ -9,6 +9,9 @@ declare namespace kakao.maps {
   // entirely. This file now explicitly defines or extends all types used in
   // the map page to prevent type conflicts and build errors.
 
+  // --- Static Functions ---
+  export function load(callback: () => void): void;
+
   // --- Classes ---
   // We must re-declare classes used with `new`
   export class LatLng {
