@@ -26,6 +26,8 @@ declare namespace kakao.maps {
     getBounds(): LatLngBounds;
     getCenter(): LatLng;
     getLevel(): number;
+    setCenter(latlng: LatLng): void;
+    setLevel(level: number): void;
   }
 
   export class Marker {
