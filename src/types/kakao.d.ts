@@ -3,12 +3,9 @@
 /// <reference types="@types/kakao__maps" />
 
 declare namespace kakao.maps {
-  // --- 기존 타입과 병합하기 위해 수동으로 추가하는 타입 정의 ---
-
-  // 1. MarkerClusterer 클래스
-  // @types/kakao__maps 패키지에 누락된 'clusterer' 라이브러리의 타입입니다.
-  // 빌드 오류를 해결하기 위해 사용하는 기능(생성자, addMarkers, clear)을 직접 정의합니다.
-  class MarkerClusterer {
+  // 1. @types/kakao__maps 패키지에 누락된 'clusterer' 라이브러리의 MarkerClusterer 클래스를 정의합니다.
+  // 이 클래스는 기본 타입에 포함되어 있지 않으므로 새로 정의해야 합니다.
+  export class MarkerClusterer {
     constructor(options: {
       map: kakao.maps.Map;
       averageCenter?: boolean;
@@ -19,45 +16,18 @@ declare namespace kakao.maps {
     addMarkers(markers: kakao.maps.Marker[]): void;
     clear(): void;
   }
-  
-  // 2. MarkerImage, Size, Point 클래스
-  // 커스텀 마커 이미지를 사용할 때 필요한 타입들입니다.
-  class Size {
-    constructor(width: number, height: number);
-    width: number;
-    height: number;
-  }
 
-  class Point {
-    constructor(x: number, y: number);
-    x: number;
-    y: number;
-  }
-
-  class MarkerImage {
-    constructor(
-      src: string,
-      size: kakao.maps.Size,
-      options?: {
-        alt?: string;
-        coords?: string;
-        offset?: kakao.maps.Point;
-        shape?: string;
-        spriteOrigin?: kakao.maps.Point;
-        spriteSize?: kakao.maps.Size;
-      },
-    );
-  }
-
-  // 3. 기존 Marker 인터페이스를 확장하여 누락된 함수들을 추가합니다.
-  interface Marker {
+  // 2. 기존 Marker 인터페이스를 확장하여 @types/kakao__maps에 누락된 함수들을 추가합니다.
+  // `Size`, `Point`, `MarkerImage` 등은 기본 타입에 이미 존재하므로 재정의하지 않습니다.
+  // 재정의할 경우 타입 충돌로 인해 기존 타입 전체가 무시될 수 있습니다.
+  export interface Marker {
     setZIndex(zIndex: number): void;
     setMap(map: kakao.maps.Map | null): void;
     setImage(image: kakao.maps.MarkerImage): void;
   }
 
-  // 4. 기존 Map 인터페이스를 확장하여 panTo 함수를 추가합니다.
-  interface Map {
+  // 3. 기존 Map 인터페이스를 확장하여 누락된 panTo 함수를 추가합니다.
+  export interface Map {
     panTo(latlng: kakao.maps.LatLng): void;
   }
 }
