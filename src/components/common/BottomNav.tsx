@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, Bookmark, Bell, User } from 'lucide-react';
+import { Home, LayoutGrid, CalendarCheck, Bell, User } from 'lucide-react';
 import { useUnreadNotificationsCountQuery } from '@/lib/notificationQuery';
 import { useAuthStore } from '@/stores/authStore';
 
 const navItems = [
   { href: '/', label: '홈', icon: Home },
-  { href: '/search', label: '검색', icon: Search },
-  { href: '/bookmarks', label: '북마크', icon: Bookmark },
+  { href: '/category', label: '카테고리', icon: LayoutGrid },
+  { href: '/reservations', label: '예약', icon: CalendarCheck },
   { href: '/notifications', label: '알림', icon: Bell },
   { href: '/mypage', label: '마이', icon: User },
 ];
