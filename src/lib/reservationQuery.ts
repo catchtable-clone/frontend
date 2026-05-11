@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
-import { createReservation, getReservations, cancelReservation, updateReservation } from './reservationApi';
+import { createReservation, getReservations, cancelReservation, updateReservation, markReservationVisited } from './reservationApi';
 import type { ReservationRequest, ReservationUpdateRequest } from './reservationApi';
 
 const reservationsKey = (userId: number | null) => ['reservations', userId];
@@ -50,6 +50,18 @@ export const useCancelReservationMutation = () => {
 
   return useMutation({
     mutationFn: (reservationId: number) => cancelReservation(reservationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reservationsKey(userId) });
+    },
+  });
+};
+
+export const useMarkVisitedMutation = () => {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore((s) => s.userId);
+
+  return useMutation({
+    mutationFn: (reservationId: number) => markReservationVisited(reservationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reservationsKey(userId) });
     },

@@ -19,7 +19,7 @@ import BottomSheet from '@/components/common/BottomSheet';
 import Tabs from '@/components/common/Tabs';
 import LoginRequired from '@/components/common/LoginRequired';
 import { formatDate } from '@/lib/utils';
-import { useReservationsQuery, useCancelReservationMutation } from '@/lib/reservationQuery';
+import { useReservationsQuery, useCancelReservationMutation, useMarkVisitedMutation } from '@/lib/reservationQuery';
 import {
   useCreateReviewMutation,
   useMyReviewsQuery,
@@ -48,12 +48,14 @@ const STATUS_CONFIG: Record<
 function ReservationCard({
   reservation,
   onCancel,
+  onMarkVisited,
   onWriteReview,
   onEditReview,
   isReviewed,
 }: {
   reservation: Reservation;
   onCancel: (id: number) => void;
+  onMarkVisited: (id: number) => void;
   onWriteReview: (reservation: Reservation) => void;
   onEditReview: (reservation: Reservation) => void;
   isReviewed: boolean;
@@ -105,23 +107,31 @@ function ReservationCard({
 
       {/* 액션 버튼 */}
       {isUpcoming && (
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-col gap-2">
           <button
-            onClick={() =>
-              router.push(
-              `/stores/${reservation.storeId}?changeFrom=${reservation.id}`
-              )
-            }
-            className="flex-1 rounded-lg border border-blue-200 py-2 text-sm font-medium text-blue-500 hover:bg-blue-50"
+            onClick={() => onMarkVisited(reservation.id)}
+            className="w-full rounded-lg bg-orange-500 py-2 text-sm font-medium text-white hover:bg-orange-600"
           >
-            예약 변경
+            방문 확정
           </button>
-          <button
-            onClick={() => onCancel(reservation.id)}
-            className="flex-1 rounded-lg border border-red-200 py-2 text-sm font-medium text-red-500 hover:bg-red-50"
-          >
-            예약 취소
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() =>
+                router.push(
+                `/stores/${reservation.storeId}?changeFrom=${reservation.id}`
+                )
+              }
+              className="flex-1 rounded-lg border border-blue-200 py-2 text-sm font-medium text-blue-500 hover:bg-blue-50"
+            >
+              예약 변경
+            </button>
+            <button
+              onClick={() => onCancel(reservation.id)}
+              className="flex-1 rounded-lg border border-red-200 py-2 text-sm font-medium text-red-500 hover:bg-red-50"
+            >
+              예약 취소
+            </button>
+          </div>
         </div>
       )}
 
@@ -166,6 +176,7 @@ export default function ReservationsPage() {
   const userId = useAuthStore((s) => s.userId) ?? 0;
   const { data: reservations = [], isLoading } = useReservationsQuery();
   const { mutate: cancelReservation } = useCancelReservationMutation();
+  const { mutate: markVisited } = useMarkVisitedMutation();
   const { data: vacancies = [], isLoading: isVacancyLoading } = useMyVacanciesQuery();
   const { mutate: cancelVacancy } = useCancelVacancyMutation();
   const [cancelTarget, setCancelTarget] = useState<number | null>(null);
@@ -197,6 +208,14 @@ export default function ReservationsPage() {
 
   const handleCancel = (id: number) => {
     setCancelTarget(id);
+  };
+
+  const handleMarkVisited = (id: number) => {
+    markVisited(id, {
+      onSuccess: () => {
+        toast.success('방문 처리되었습니다.');
+      },
+    });
   };
 
   const confirmCancel = () => {
@@ -370,6 +389,7 @@ export default function ReservationsPage() {
                   key={reservation.id}
                   reservation={reservation}
                   onCancel={handleCancel}
+                  onMarkVisited={handleMarkVisited}
                   onWriteReview={openReviewModal}
                   onEditReview={openEditReviewModal}
                   isReviewed={reviewedReservationIds.has(reservation.id)}
