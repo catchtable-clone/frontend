@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Send, Bot, X, Minus } from 'lucide-react';
+import { Send, Bot, X, Minus, Loader2 } from 'lucide-react';
+import { useChatMessagesQuery, useSendChatMessageMutation } from '@/lib/chatQuery';
+import { useAuthStore } from '@/stores/authStore';
 import type { ChatMessage } from '@/types/store';
 
 const QUICK_PROMPTS = [
@@ -12,29 +14,13 @@ const QUICK_PROMPTS = [
   '이번 주말 2명 예약',
 ];
 
-const MOCK_RESPONSES: Record<string, string> = {
-  '내 주변 맛집 추천해줘':
-    '현재 위치 기준으로 인기 매장을 추천해드릴게요!\n\n🍣 **스시 소라** (일식) - ★4.8\n서울 강남구 역삼동\n\n🍚 **모수 서울** (한식) - ★4.9\n서울 용산구 한남동\n\n☕ **카페 온도** (카페) - ★4.7\n서울 성동구 성수동\n\n예약을 원하시면 매장명과 날짜, 시간, 인원을 알려주세요!',
-  '오늘 저녁 예약 가능한 곳':
-    '오늘 저녁 예약 가능한 매장이에요!\n\n🍣 **스시 소라** - 18:00, 19:00, 20:00\n🍜 **라멘 이찌** - 18:00, 19:00\n☕ **카페 온도** - 18:00, 19:00, 20:00\n\n예약하고 싶은 매장과 시간을 말씀해주세요!',
-  '강남 일식 추천':
-    '강남 근처 일식 매장을 추천해드릴게요!\n\n🍣 **스시 소라** - ★4.8 (리뷰 324개)\n서울 강남구 역삼동 | 11:00~22:00\n오마카세 코스 150,000원~\n\n🍜 **라멘 이찌** - ★4.6 (리뷰 287개)\n서울 강남구 신사동 | 11:00~21:00\n돈코츠 라멘 12,000원~\n\n예약을 도와드릴까요?',
-  '이번 주말 2명 예약':
-    '이번 주말 2명 예약을 도와드릴게요! 어떤 매장을 원하시나요?\n\n현재 주말 예약 가능한 매장:\n• 스시 소라 (토 18:00, 일 12:00)\n• 모수 서울 (토 19:00)\n• 카페 온도 (토·일 전 시간대)\n\n매장명과 원하시는 시간을 알려주세요!',
-};
-
-const DEFAULT_RESPONSE =
-  '죄송합니다, 정확히 이해하지 못했어요. 다음과 같이 말씀해보세요:\n\n• "내 주변 맛집 추천해줘"\n• "스시 소라 내일 18시 2명 예약"\n• "강남 일식 추천"\n\n자연어로 편하게 말씀해주시면 도와드릴게요!';
-
 export default function FloatingChat() {
   const pathname = usePathname();
   const hideButton = pathname === '/map';
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // 드래그 상태
   const [btnPos, setBtnPos] = useState({ x: 0, y: 0 });
@@ -49,6 +35,14 @@ export default function FloatingChat() {
     offsetY: number;
   }>({ dragging: false, moved: false, startX: 0, startY: 0, offsetX: 0, offsetY: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
+
+  const { accessToken } = useAuthStore();
+  const isLoggedIn = !!accessToken;
+
+  // 채팅창이 열리고 로그인 상태일 때만 채팅 내역을 가져옵니다.
+  const { data: messages = [], isLoading: isLoadingHistory } = useChatMessagesQuery(isOpen && isLoggedIn);
+  const sendChatMessageMutation = useSendChatMessageMutation();
+  const isTyping = sendChatMessageMutation.isPending;
 
   const calcDefaultPos = () => {
     const containerWidth = Math.min(480, window.innerWidth);
@@ -140,11 +134,15 @@ export default function FloatingChat() {
     setIsDragging(false);
   };
 
-  const showIntro = messages.length === 0;
+  const showIntro = messages.length === 0 && !isLoadingHistory && isLoggedIn;
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+  useLayoutEffect(() => {
+    // 채팅창이 열리거나, 메시지 목록이 변경되거나, AI가 응답 중일 때 스크롤을 맨 아래로 이동시킵니다.
+    // 이렇게 하면 사용자가 스크롤을 위로 올렸다가 다시 켜도 항상 최신 메시지를 볼 수 있습니다.
+    if (isOpen && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, [isOpen, messages, isTyping]);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -153,30 +151,10 @@ export default function FloatingChat() {
   }, [isOpen]);
 
   const sendMessage = (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || !isLoggedIn || isTyping) return;
 
-    const userMsg: ChatMessage = {
-      id: Date.now(),
-      role: 'USER',
-      content: text.trim(),
-      createdAt: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
+    sendChatMessageMutation.mutate(text.trim());
     setInput('');
-    setIsTyping(true);
-
-    setTimeout(() => {
-      const responseText = MOCK_RESPONSES[text.trim()] || DEFAULT_RESPONSE;
-      const botMsg: ChatMessage = {
-        id: Date.now() + 1,
-        role: 'ASSISTANT',
-        content: responseText,
-        createdAt: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, botMsg]);
-      setIsTyping(false);
-    }, 1000);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -239,7 +217,6 @@ export default function FloatingChat() {
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  setMessages([]);
                   setInput('');
                 }}
                 className="rounded-lg p-1.5 text-gray-400 hover:text-white"
@@ -250,7 +227,28 @@ export default function FloatingChat() {
           </div>
 
           {/* 채팅 영역 */}
-          <div className="flex flex-1 flex-col overflow-y-auto bg-gray-50">
+          <div
+            ref={scrollContainerRef}
+            className="flex flex-1 flex-col overflow-y-auto bg-gray-50"
+          >
+            {/* 로그인 안된 경우 */}
+            {!isLoggedIn && (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4 text-center">
+                <Bot size={32} className="text-gray-400" />
+                <p className="text-sm text-gray-600">로그인 후 AI 챗봇을 이용해보세요.</p>
+              </div>
+            )}
+
+            {/* 히스토리 로딩 중 */}
+            {isLoggedIn && isLoadingHistory && (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2">
+                <Loader2 size={24} className="animate-spin text-gray-400" />
+                <p className="text-xs text-gray-400">
+                  대화 내역을 불러오는 중...
+                </p>
+              </div>
+            )}
+
             {/* 인트로 */}
             {showIntro && (
               <div className="mx-4 mt-4 rounded-xl bg-gray-900 p-4 text-white">
@@ -280,40 +278,40 @@ export default function FloatingChat() {
               </div>
             )}
 
-            {/* 메시지 목록 */}
-            <div className="flex flex-1 flex-col gap-3 px-4 py-3">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.role === 'USER' ? 'justify-end' : 'justify-start'}`}
-                >
-                  {msg.role === 'ASSISTANT' && (
-                    <div className="mr-2 mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gray-900">
-                      <Bot size={12} className="text-white" />
-                    </div>
-                  )}
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
-                      msg.role === 'USER'
-                        ? 'rounded-br-md bg-orange-500 text-white'
-                        : 'rounded-bl-md bg-white text-gray-900 shadow-sm'
-                    }`}
-                  >
-                    {msg.content.split('\n').map((line: string, i: number) => (
-                      <span key={i}>
-                        {line.split(/(\*\*.*?\*\*)/).map((part: string, j: number) =>
-                          part.startsWith('**') && part.endsWith('**') ? (
-                            <strong key={j}>{part.slice(2, -2)}</strong>
-                          ) : (
-                            <span key={j}>{part}</span>
-                          ),
-                        )}
-                        {i < msg.content.split('\n').length - 1 && <br />}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
+{/* 메시지 목록 */}
+<div className="flex flex-1 flex-col gap-3 px-4 py-3">
+  {messages.map((msg, msgIndex) => (
+    <div
+      key={msg.id ?? `msg-${msgIndex}`}
+      className={`flex ${msg.role === 'USER' ? 'justify-end' : 'justify-start'}`}
+    >
+      {msg.role === 'ASSISTANT' && (
+        <div className="mr-2 mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gray-900">
+          <Bot size={12} className="text-white" />
+        </div>
+      )}
+      <div
+        className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+          msg.role === 'USER'
+            ? 'rounded-br-md bg-orange-500 text-white'
+            : 'rounded-bl-md bg-white text-gray-900 shadow-sm'
+        }`}
+      >
+        {msg.content.split('\n').map((line: string, i: number) => (
+          <span key={`${msg.id ?? msgIndex}-line-${i}`}>
+            {line.split(/(\*\*.*?\*\*)/).map((part: string, j: number) =>
+              part.startsWith('**') && part.endsWith('**') ? (
+                <strong key={`${msg.id ?? msgIndex}-line-${i}-part-${j}`}>{part.slice(2, -2)}</strong>
+              ) : (
+                <span key={`${msg.id ?? msgIndex}-line-${i}-part-${j}`}>{part}</span>
+              ),
+            )}
+            {i < msg.content.split('\n').length - 1 && <br />}
+          </span>
+        ))}
+      </div>
+    </div>
+  ))}
 
               {/* 타이핑 인디케이터 */}
               {isTyping && (
@@ -331,7 +329,6 @@ export default function FloatingChat() {
                 </div>
               )}
 
-              <div ref={messagesEndRef} />
             </div>
           </div>
 
@@ -343,13 +340,13 @@ export default function FloatingChat() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="메시지를 입력하세요..."
-                disabled={isTyping}
+                placeholder={isLoggedIn ? '메시지를 입력하세요...' : '로그인이 필요합니다.'}
+                disabled={isTyping || !isLoggedIn}
                 className="flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none disabled:opacity-50"
               />
               <button
                 type="submit"
-                disabled={!input.trim() || isTyping}
+                disabled={!input.trim() || isTyping || !isLoggedIn}
                 className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-orange-500 text-white transition-colors hover:bg-orange-600 disabled:bg-gray-300"
               >
                 <Send size={18} />
