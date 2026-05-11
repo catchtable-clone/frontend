@@ -1,18 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getChatMessages, sendChatMessage } from './api/chat';
 import type { ChatMessage } from '@/types/store';
+import { useAuthStore } from '@/stores/authStore';
+
 // React Query 캐시 키 상수
-export const CHAT_MESSAGES_QUERY_KEY = ['chatMessages'];
+export const CHAT_MESSAGES_QUERY_KEY = (userId: number | null) =>
+  ['chatMessages', userId] as const;
 
 /**
  * 채팅 메시지 목록을 가져오는 React Query 훅
  * @param enabled 쿼리를 활성화할지 여부
  */
 export const useChatMessagesQuery = (enabled: boolean) => {
+  const userId = useAuthStore((s) => s.userId);
   return useQuery<ChatMessage[]>({
-    queryKey: CHAT_MESSAGES_QUERY_KEY,
+    queryKey: CHAT_MESSAGES_QUERY_KEY(userId),
     queryFn: getChatMessages,
-    enabled,
+    enabled: enabled && !!userId,
     staleTime: Infinity, // 채팅 내역은 사용자가 직접 보내기 전까지는 바뀌지 않음
     retry: false, // 로그인 안되어있을 때 401 에러 재시도 방지
   });
@@ -23,16 +27,19 @@ export const useChatMessagesQuery = (enabled: boolean) => {
  */
 export const useSendChatMessageMutation = () => {
   const queryClient = useQueryClient();
+  const userId = useAuthStore((s) => s.userId);
 
   return useMutation({
     mutationFn: sendChatMessage,
     // onMutate를 사용하여 사용자 메시지를 서버 응답 전에 즉시 UI에 표시 (낙관적 업데이트)
     onMutate: async (newMessageContent: string) => {
       // 진행중인 refetch를 취소합니다.
-      await queryClient.cancelQueries({ queryKey: CHAT_MESSAGES_QUERY_KEY });
+      await queryClient.cancelQueries({ queryKey: CHAT_MESSAGES_QUERY_KEY(userId) });
 
       // 롤백을 위해 이전 메시지 목록을 스냅샷합니다.
-      const previousMessages = queryClient.getQueryData<ChatMessage[]>(CHAT_MESSAGES_QUERY_KEY);
+      const previousMessages = queryClient.getQueryData<ChatMessage[]>(
+        CHAT_MESSAGES_QUERY_KEY(userId),
+      );
 
       // 사용자 메시지를 낙관적으로 추가합니다.
       const userMessage: ChatMessage = {
@@ -44,17 +51,20 @@ export const useSendChatMessageMutation = () => {
         content: newMessageContent,
         createdAt: new Date().toISOString(),
       };
-      queryClient.setQueryData<ChatMessage[]>(CHAT_MESSAGES_QUERY_KEY, (old = []) => [...old, userMessage]);
+      queryClient.setQueryData<ChatMessage[]>(
+        CHAT_MESSAGES_QUERY_KEY(userId),
+        (old = []) => [...old, userMessage],
+      );
 
       return { previousMessages };
     },
     // 에러 발생 시 onMutate에서 변경한 내용을 롤백
     onError: (err, newMessage, context) => {
-      queryClient.setQueryData(CHAT_MESSAGES_QUERY_KEY, context?.previousMessages);
+      queryClient.setQueryData(CHAT_MESSAGES_QUERY_KEY(userId), context?.previousMessages);
     },
     // 성공/실패 여부와 관계없이, 항상 최신 데이터로 다시 동기화
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: CHAT_MESSAGES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: CHAT_MESSAGES_QUERY_KEY(userId) });
     },
   });
 };
