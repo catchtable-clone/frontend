@@ -49,6 +49,7 @@ function ReservationCard({
   reservation,
   onCancel,
   onMarkVisited,
+  isMarkingVisited,
   onWriteReview,
   onEditReview,
   isReviewed,
@@ -56,6 +57,7 @@ function ReservationCard({
   reservation: Reservation;
   onCancel: (id: number) => void;
   onMarkVisited: (id: number) => void;
+  isMarkingVisited: boolean;
   onWriteReview: (reservation: Reservation) => void;
   onEditReview: (reservation: Reservation) => void;
   isReviewed: boolean;
@@ -108,12 +110,15 @@ function ReservationCard({
       {/* 액션 버튼 */}
       {isUpcoming && (
         <div className="mt-4 flex flex-col gap-2">
-          <button
-            onClick={() => onMarkVisited(reservation.id)}
-            className="w-full rounded-lg bg-orange-500 py-2 text-sm font-medium text-white hover:bg-orange-600"
-          >
-            방문 확정
-          </button>
+          {reservation.status === 'CONFIRMED' && (
+            <button
+              onClick={() => onMarkVisited(reservation.id)}
+              disabled={isMarkingVisited}
+              className="w-full rounded-lg bg-orange-500 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isMarkingVisited ? '처리 중...' : '방문 확정'}
+            </button>
+          )}
           <div className="flex gap-2">
             <button
               onClick={() =>
@@ -176,7 +181,7 @@ export default function ReservationsPage() {
   const userId = useAuthStore((s) => s.userId) ?? 0;
   const { data: reservations = [], isLoading } = useReservationsQuery();
   const { mutate: cancelReservation } = useCancelReservationMutation();
-  const { mutate: markVisited } = useMarkVisitedMutation();
+  const { mutate: markVisited, isPending: isMarkingVisited } = useMarkVisitedMutation();
   const { data: vacancies = [], isLoading: isVacancyLoading } = useMyVacanciesQuery();
   const { mutate: cancelVacancy } = useCancelVacancyMutation();
   const [cancelTarget, setCancelTarget] = useState<number | null>(null);
@@ -390,6 +395,7 @@ export default function ReservationsPage() {
                   reservation={reservation}
                   onCancel={handleCancel}
                   onMarkVisited={handleMarkVisited}
+                  isMarkingVisited={isMarkingVisited}
                   onWriteReview={openReviewModal}
                   onEditReview={openEditReviewModal}
                   isReviewed={reviewedReservationIds.has(reservation.id)}
