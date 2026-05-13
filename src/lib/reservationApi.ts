@@ -39,14 +39,21 @@ interface ReservationApiResponse {
   createdAt: string;
 }
 
-export const createReservation = async (data: ReservationRequest): Promise<Reservation> => {
+export interface ReservationCreateResponse {
+  id: number;
+  orderId: string;
+  amount: number;
+  status: string;
+}
+
+export const createReservation = async (data: ReservationRequest): Promise<ReservationCreateResponse> => {
   const payload = {
     remainId: data.remainId,
     member: data.guestCount,
     couponId: data.couponId,
   };
   const response = await api.post('/reservations', payload);
-  return unwrap<Reservation>(response, {} as Reservation);
+  return unwrap<ReservationCreateResponse>(response, {} as ReservationCreateResponse);
 };
 
 /**
