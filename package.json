@@ -15,10 +15,10 @@
     "@react-oauth/google": "^0.13.5",
     "@tanstack/react-query": "^5.99.0",
     "@tanstack/react-query-devtools": "^5.100.6",
-    "axios": "^1.15.0",
+    "axios": "^1.7.2",
     "embla-carousel-react": "^8.6.0",
     "lucide-react": "^1.8.0",
-    "next": "16.2.4",
+    "next": "16.2.6",
     "react": "19.2.4",
     "react-day-picker": "^9.14.0",
     "react-dom": "19.2.4",
@@ -31,10 +31,13 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "16.2.6",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.3",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "postcss": "^8.5.10"
   }
 }
