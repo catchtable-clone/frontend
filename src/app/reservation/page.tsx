@@ -127,6 +127,10 @@ function ReservationContent() {
       console.log('[결제] channelKey:', process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY);
       const PortOne = await import('@portone/browser-sdk/v2');
       console.log('[결제] 2. PortOne SDK 로드 완료, requestPayment 호출 중...');
+      // PortOne SDK 0.1.x 타입 정의에 alipayPlus가 잘못 required로 정의돼있음 (SDK 버그).
+      // 빈 객체로 채우면 PortOne 서버가 "easyPay 외 다른 결제 옵션 동시 사용 불가"로 reject하므로,
+      // type-check만 우회하고 객체에선 빼야 한다.
+      // @ts-expect-error SDK 타입 버그 — SDK 갱신 시 'Unused @ts-expect-error' 경고로 알려줌
       const paymentResult = await PortOne.requestPayment({
         storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID!,
         channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY!,
@@ -136,7 +140,6 @@ function ReservationContent() {
         currency: 'CURRENCY_KRW',
         payMethod: 'EASY_PAY',
         easyPay: { easyPayProvider: 'KAKAOPAY' },
-        alipayPlus: {},
       });
       console.log('[결제] 2. requestPayment 결과:', paymentResult);
 
