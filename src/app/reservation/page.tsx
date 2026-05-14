@@ -136,7 +136,7 @@ function ReservationContent() {
         currency: 'CURRENCY_KRW',
         payMethod: 'EASY_PAY',
         easyPay: { easyPayProvider: 'KAKAOPAY' },
-        alipayPlus: null,
+        alipayPlus: {},
       });
       console.log('[결제] 2. requestPayment 결과:', paymentResult);
 
