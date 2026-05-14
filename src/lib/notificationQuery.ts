@@ -55,10 +55,11 @@ export const useMarkAllAsReadMutation = () => {
 /**
  * 읽지 않은 알림 개수를 가져오는 React Query 훅
  */
-export const useUnreadNotificationsCountQuery = () => {
+export const useUnreadNotificationsCountQuery = (enabled: boolean = true) => {
   return useQuery({
     queryKey: UNREAD_COUNT_QUERY_KEY,
     queryFn: fetchUnreadNotificationsCount,
+    enabled,
     refetchInterval: 60 * 1000, // 1분마다 자동으로 읽지 않은 알림 개수를 업데이트
   });
 };

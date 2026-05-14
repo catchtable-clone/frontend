@@ -22,7 +22,9 @@ import BottomSheet from '@/components/common/BottomSheet';
 import { useQuery } from '@tanstack/react-query';
 import { getMyCoupons } from '@/lib/api/coupons';
 import { formatDate } from '@/lib/utils';
-import { useCreateReservationMutation, useUpdateReservationMutation } from '@/lib/reservationQuery';
+import { useUpdateReservationMutation } from '@/lib/reservationQuery';
+import { createReservation, cancelReservation } from '@/lib/reservationApi';
+import { confirmPayment } from '@/lib/api/paymentApi';
 import { useStoreDetailQuery } from '@/lib/storeQuery';
 import { useAuthStore } from '@/stores/authStore';
 import type { Coupon } from '@/types/store';
@@ -48,13 +50,13 @@ function ReservationContent() {
   });
   const availableCoupons = myCoupons.filter((c) => c.status === 'AVAILABLE');
 
-  const { mutate: createReservation, isPending } = useCreateReservationMutation();
   const { mutate: updateReservation, isPending: isUpdatePending } = useUpdateReservationMutation();
 
   const [guestCount, setGuestCount] = useState(2);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [showCouponSheet, setShowCouponSheet] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
 
   if (isStoreLoading) {
     return (
@@ -89,29 +91,76 @@ function ReservationContent() {
     );
   }
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!userId) {
       toast.error('로그인이 필요합니다.');
       return;
     }
+
+    // 예약 변경은 기존 결제 없이 바로 처리
     if (isChange && changeFrom) {
       updateReservation(
         {
           reservationId: Number(changeFrom),
           data: { remainId, guestCount, couponId: selectedCoupon?.id },
         },
-        {
-          onSuccess: () => setShowSuccess(true),
-          // 에러는 axios 인터셉터가 토스트로 처리
-        }
+        { onSuccess: () => setShowSuccess(true) }
       );
-    } else {
-      createReservation(
-        { storeId, date, time, guestCount, remainId, couponId: selectedCoupon?.id },
-        {
-          onSuccess: () => setShowSuccess(true),
-        }
-      );
+      return;
+    }
+
+    setIsPaying(true);
+    let reservationId: number | null = null;
+
+    try {
+      // 1. 예약 생성 (PENDING)
+      console.log('[결제] 1. 예약 생성 시작');
+      const { id, orderId, amount } = await createReservation({
+        storeId, date, time, guestCount, remainId, couponId: selectedCoupon?.id,
+      });
+      reservationId = id;
+      console.log('[결제] 1. 예약 생성 완료:', { reservationId, orderId, amount });
+
+      // 2. 카카오페이 결제창 오픈
+      console.log('[결제] 2. PortOne SDK 로드 중...');
+      console.log('[결제] storeId:', process.env.NEXT_PUBLIC_PORTONE_STORE_ID);
+      console.log('[결제] channelKey:', process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY);
+      const PortOne = await import('@portone/browser-sdk/v2');
+      console.log('[결제] 2. PortOne SDK 로드 완료, requestPayment 호출 중...');
+      const paymentResult = await PortOne.requestPayment({
+        storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID!,
+        channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY!,
+        paymentId: orderId,
+        orderName: '예약 예치금',
+        totalAmount: amount,
+        currency: 'CURRENCY_KRW',
+        payMethod: 'EASY_PAY',
+        easyPay: { easyPayProvider: 'KAKAOPAY' },
+        alipayPlus: {},
+      });
+      console.log('[결제] 2. requestPayment 결과:', paymentResult);
+
+      if (paymentResult?.code != null) {
+        // 결제 취소 또는 실패 — 예약도 취소
+        await cancelReservation(reservationId);
+        toast.error('결제가 취소되었습니다.');
+        return;
+      }
+
+      // 3. 백엔드에서 결제 검증 후 예약 확정
+      console.log('[결제] 3. 백엔드 결제 검증 중...');
+      await confirmPayment(orderId);
+      console.log('[결제] 3. 결제 검증 완료 — 예약 확정');
+
+      setShowSuccess(true);
+    } catch (error) {
+      console.error('[결제] 오류 발생:', error);
+      if (reservationId) {
+        await cancelReservation(reservationId).catch(() => {});
+      }
+      toast.error('결제 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsPaying(false);
     }
   };
 
@@ -210,12 +259,12 @@ function ReservationContent() {
       <div className="sticky bottom-0 border-t border-gray-200 bg-white px-4 py-3">
         <button
           onClick={handleConfirm}
-          disabled={isPending || isUpdatePending}
+          disabled={isPaying || isUpdatePending}
           className={`w-full rounded-lg py-3 text-sm font-semibold text-white transition-colors ${
-            (isPending || isUpdatePending) ? 'cursor-not-allowed bg-gray-400' : 'bg-orange-500 hover:bg-orange-600'
+            (isPaying || isUpdatePending) ? 'cursor-not-allowed bg-gray-400' : 'bg-orange-500 hover:bg-orange-600'
           }`}
         >
-          {(isPending || isUpdatePending) ? '예약 처리 중...' : isChange ? '예약 변경하기' : '예약 확정하기'}
+          {isUpdatePending ? '예약 변경 중...' : isPaying ? '결제 처리 중...' : isChange ? '예약 변경하기' : '결제하고 예약 확정하기'}
         </button>
       </div>
 
