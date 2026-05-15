@@ -31,8 +31,13 @@ import { getBookmarksInFolder, type BookmarkResponse } from '@/lib/bookmarkApi';
 import { useAuthStore } from '@/stores/authStore';
 import type { StoreSummary } from '@/types/store';
 
+/**
+ * 마커 단위 = 좌표가 동일한 매장 그룹.
+ * 단일 매장이면 stores.length === 1.
+ * 여러 매장이 같은 좌표면 숫자 배지 마커로 표시되고 클릭 시 list 시트를 연다.
+ */
 interface MarkerEntry {
-  store: StoreSummary;
+  stores: StoreSummary[];
   marker: kakao.maps.Marker;
 }
 
@@ -55,10 +60,17 @@ function MapContent() {
   interface FocusedStore {
     storeId: number;
     storeName: string;
+    storeImage: string | null;
     category: string;
     address: string;
   }
   const [focusedStore, setFocusedStore] = useState<FocusedStore | null>(null);
+
+  /**
+   * 같은 좌표에 매장이 여러 개인 그룹 마커를 클릭했을 때 표시할 매장 list.
+   * null이면 시트 비표시. 즐겨찾기 시트와 동일한 디자인으로 렌더링한다.
+   */
+  const [groupStores, setGroupStores] = useState<StoreSummary[] | null>(null);
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -196,10 +208,45 @@ function MapContent() {
     return image;
   }, []);
 
+  /**
+   * 같은 좌표에 매장이 여러 개일 때 사용하는 숫자 배지 마커.
+   * 핀 모양 + 흰 원 안에 매장 수를 표시한다.
+   */
+  const createGroupMarkerImage = useCallback((color: string, count: number) => {
+    const key = `group|${color}|${count}`;
+    const cached = markerImageCache.current.get(key);
+    if (cached) return cached;
+
+    const label = count > 99 ? '99+' : String(count);
+    const fontSize = count > 99 ? 10 : 12;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
+      <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 26 18 26s18-12.5 18-26C36 8.06 27.94 0 18 0z" fill="${color}"/>
+      <circle cx="18" cy="18" r="10" fill="white"/>
+      <text x="18" y="22" font-size="${fontSize}" font-weight="bold" text-anchor="middle" fill="${color}">${label}</text>
+    </svg>`;
+    const image = new kakao.maps.MarkerImage(
+      `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+      new kakao.maps.Size(36, 44),
+    );
+    markerImageCache.current.set(key, image);
+    return image;
+  }, []);
+
   // 폴더/북마크 변경 시 마커 색상 즉시 업데이트
   useEffect(() => {
-    markersRef.current.forEach(({ store, marker }) => {
-      const folder = storeIdToFolder.get(store.storeId);
+    markersRef.current.forEach(({ stores, marker }) => {
+      // 그룹 내 매장 중 즐겨찾기 등록된 첫 번째 폴더 색상을 그룹 마커 색상으로 사용
+      const folder = stores
+        .map((s) => storeIdToFolder.get(s.storeId))
+        .find((f) => f !== undefined);
+      const isMulti = stores.length > 1;
+
+      if (isMulti) {
+        const color = folder?.color ?? '#3B82F6';
+        marker.setImage(createGroupMarkerImage(color, stores.length));
+        return;
+      }
+
       if (folder) {
         marker.setImage(createColoredMarkerImage(folder.color));
       } else {
@@ -211,7 +258,7 @@ function MapContent() {
         );
       }
     });
-  }, [storeIdToFolder, createColoredMarkerImage]);
+  }, [storeIdToFolder, createColoredMarkerImage, createGroupMarkerImage]);
 
   const focusedStoreId = focusedStore?.storeId ?? null;
 
@@ -219,40 +266,60 @@ function MapContent() {
     (map: kakao.maps.Map) => {
       const clusterMarkers: kakao.maps.Marker[] = [];
 
-      stores.forEach((store) => {
-        const isFocused = focusedStoreId === store.storeId;
-        const folder = storeIdToFolder.get(store.storeId);
-        // 현재 선택된(focused) 매장은 강조 색(주황)으로 별도 표시 → 사용자가 위치 즉시 인식 가능
-        const markerImage = isFocused
-          ? createColoredMarkerImage('#F97316')
-          : folder
-            ? createColoredMarkerImage(folder.color)
+      // (lat, lng) 정밀도 7자리로 동일 좌표 매장 그룹화 — 약 1cm 단위로 같으면 같은 위치로 본다
+      const groups = new Map<string, StoreSummary[]>();
+      stores.forEach((s) => {
+        const key = `${s.latitude.toFixed(7)},${s.longitude.toFixed(7)}`;
+        const arr = groups.get(key) ?? [];
+        arr.push(s);
+        groups.set(key, arr);
+      });
+
+      groups.forEach((group) => {
+        const isMulti = group.length > 1;
+        const first = group[0];
+        const isFocused = group.some((s) => s.storeId === focusedStoreId);
+        // 그룹 안에 즐겨찾기 등록 매장이 있으면 그 색상 (첫 번째 매칭)
+        const folder = group
+          .map((s) => storeIdToFolder.get(s.storeId))
+          .find((f) => f !== undefined);
+
+        // 색상 우선순위: focused(주황) > folder > 기본
+        const color = isFocused ? '#F97316' : folder?.color ?? '#3B82F6';
+
+        const markerImage = isMulti
+          ? createGroupMarkerImage(color, group.length)
+          : isFocused || folder
+            ? createColoredMarkerImage(color)
             : undefined;
 
-        // 클러스터러가 마커의 표시(map)를 관리하므로 여기서는 map을 넘기지 않는다.
         const marker = new kakao.maps.Marker({
-          position: new kakao.maps.LatLng(store.latitude, store.longitude),
+          position: new kakao.maps.LatLng(first.latitude, first.longitude),
           ...(markerImage && { image: markerImage }),
         });
 
-        markersRef.current.push({ store, marker });
+        markersRef.current.push({ stores: group, marker });
 
-        // 마커 클릭 → 클릭한 매장을 지도 중앙으로 이동 + React 카드로 매장 정보 표시
+        // 마커 클릭 → 1개 매장이면 기존 focusedStore 카드, 여러 개면 그룹 시트 오픈
         kakao.maps.event.addListener(marker, 'click', () => {
           // panTo는 카카오맵 SDK에 존재하지만 일부 타입 정의에 누락됨
           (map as unknown as { panTo: (latlng: kakao.maps.LatLng) => void }).panTo(
-            new kakao.maps.LatLng(store.latitude, store.longitude),
+            new kakao.maps.LatLng(first.latitude, first.longitude),
           );
-          setFocusedStore({
-            storeId: store.storeId,
-            storeName: store.storeName,
-            category: store.category,
-            address: store.address,
-          });
+          if (isMulti) {
+            setGroupStores(group);
+          } else {
+            setFocusedStore({
+              storeId: first.storeId,
+              storeName: first.storeName,
+              storeImage: first.storeImage ?? null,
+              category: first.category,
+              address: first.address,
+            });
+          }
         });
 
-        // 강조 매장 마커는 클러스터러에 넣지 않고 항상 개별 표시.
-        // zIndex를 높게 줘서 클러스터러 마커보다 위에 그려지도록 한다.
+        // 강조 매장이 포함된 그룹은 클러스터러에 넣지 않고 항상 개별 표시.
         if (isFocused) {
           marker.setZIndex(999);
           marker.setMap(map);
@@ -268,7 +335,7 @@ function MapContent() {
         clusterMarkers.forEach((m) => m.setMap(map));
       }
     },
-    [stores, storeIdToFolder, focusedStoreId, createColoredMarkerImage],
+    [stores, storeIdToFolder, focusedStoreId, createColoredMarkerImage, createGroupMarkerImage],
   );
 
   // targetStoreId(쿼리 파라미터)로 진입 시 해당 매장 카드를 자동 표시 — 진입당 한 번만
@@ -285,6 +352,7 @@ function MapContent() {
     setFocusedStore({
       storeId: target.storeId,
       storeName: target.storeName,
+      storeImage: target.storeImage ?? null,
       category: target.category,
       address: target.address,
     });
@@ -456,34 +524,31 @@ function MapContent() {
     setFocusedStore({
       storeId: bookmark.storeId,
       storeName: bookmark.storeName,
+      storeImage: bookmark.storeImage,
       category: bookmark.category,
       address: bookmark.address,
     });
   };
 
   const handleMapSearch = (query: string) => {
-    const matched = filterStores(
-      markersRef.current.map((m) => m.store),
-      query,
-    );
-    const found = matched.length > 0
-      ? markersRef.current.find((m) => m.store.storeId === matched[0].storeId)
-      : undefined;
+    // 그룹 안의 모든 매장을 평탄화해서 검색 대상으로 사용
+    const allStores = markersRef.current.flatMap((m) => m.stores);
+    const matched = filterStores(allStores, query);
+    if (matched.length === 0 || !mapInstanceRef.current) return;
 
-    if (found && mapInstanceRef.current) {
-      const map = mapInstanceRef.current;
-      const { store } = found;
-      const position = new kakao.maps.LatLng(store.latitude, store.longitude);
-      map.setCenter(position);
-      map.setLevel(3);
-      // 마커 클릭과 일관성 — 매장 정보 카드 표시
-      setFocusedStore({
-        storeId: store.storeId,
-        storeName: store.storeName,
-        category: store.category,
-        address: store.address,
-      });
-    }
+    const targetStore = matched[0];
+    const map = mapInstanceRef.current;
+    const position = new kakao.maps.LatLng(targetStore.latitude, targetStore.longitude);
+    map.setCenter(position);
+    map.setLevel(3);
+    // 마커 클릭과 일관성 — 검색은 단일 매장 의도이므로 그룹이라도 focused 카드 표시
+    setFocusedStore({
+      storeId: targetStore.storeId,
+      storeName: targetStore.storeName,
+      storeImage: targetStore.storeImage ?? null,
+      category: targetStore.category,
+      address: targetStore.address,
+    });
   };
 
   return (
@@ -513,6 +578,16 @@ function MapContent() {
         {focusedStore && (
           <div className="absolute bottom-20 left-4 right-4 z-20 rounded-xl bg-white p-4 shadow-xl">
             <div className="flex items-start justify-between gap-3">
+              <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200">
+                <img
+                  src={focusedStore.storeImage || '/images/ready_image.png'}
+                  alt={focusedStore.storeName}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = '/images/ready_image.png';
+                  }}
+                />
+              </div>
               <div className="flex-1 overflow-hidden">
                 <p className="text-xs text-gray-400">
                   {toCategoryLabel(focusedStore.category)}
@@ -669,19 +744,15 @@ function MapContent() {
                         onClick={() => handleStoreClick(b)}
                         className="flex flex-1 items-center gap-3 text-left"
                       >
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 overflow-hidden">
-                          {b.storeImage ? (
-                            <img
-                              src={b.storeImage}
-                              alt={b.storeName}
-                              className="h-full w-full object-cover"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).src = '/images/ready_image.png';
-                              }}
-                            />
-                          ) : (
-                            <MapPin size={18} className="text-gray-400" />
-                          )}
+                        <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200">
+                          <img
+                            src={b.storeImage || '/images/ready_image.png'}
+                            alt={b.storeName}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = '/images/ready_image.png';
+                            }}
+                          />
                         </div>
                         <div className="flex-1 overflow-hidden">
                           <div className="flex items-center gap-1.5">
@@ -709,6 +780,73 @@ function MapContent() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 동일 좌표 매장 그룹 시트 — 같은 위치 매장이 여러 개일 때 표시 */}
+      {groupStores && (
+        <div
+          className="fixed inset-0 z-30 flex justify-center bg-black/40"
+          onClick={() => setGroupStores(null)}
+        >
+          <div
+            className="absolute bottom-0 left-0 right-0 mx-auto flex max-h-[70vh] w-full max-w-[480px] flex-col rounded-t-2xl bg-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-center pt-2">
+              <span className="h-1 w-10 rounded-full bg-gray-300" />
+            </div>
+            <div className="flex items-center justify-between px-5 pb-3 pt-3">
+              <h3 className="text-lg font-semibold text-gray-900">
+                이 위치의 매장 ({groupStores.length})
+              </h3>
+              <button
+                onClick={() => setGroupStores(null)}
+                className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 pb-5">
+              <div className="flex flex-col gap-2">
+                {groupStores.map((s) => (
+                  <button
+                    key={s.storeId}
+                    onClick={() => {
+                      setGroupStores(null);
+                      setFocusedStore({
+                        storeId: s.storeId,
+                        storeName: s.storeName,
+                        storeImage: s.storeImage ?? null,
+                        category: s.category,
+                        address: s.address,
+                      });
+                    }}
+                    className="flex w-full items-center gap-3 rounded-lg border border-gray-100 p-3 text-left hover:bg-gray-50"
+                  >
+                    <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200">
+                      <img
+                        src={s.storeImage || '/images/ready_image.png'}
+                        alt={s.storeName}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = '/images/ready_image.png';
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <p className="text-sm font-medium text-gray-900">{s.storeName}</p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        {toCategoryLabel(s.category)}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-gray-400">{s.address}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
