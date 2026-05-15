@@ -23,8 +23,8 @@ export default function BottomNav() {
   const { data: unreadCount } = useUnreadNotificationsCountQuery(isLoggedIn);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-100 bg-white">
-      <div className="mx-auto flex h-16 max-w-md justify-around">
+    <nav className="sticky bottom-0 z-10 border-t border-gray-100 bg-white">
+      <div className="flex h-16 justify-around">
         {navItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href;
           return (
