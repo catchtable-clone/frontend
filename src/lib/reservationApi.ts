@@ -92,3 +92,11 @@ export const updateReservation = async (
   const response = await api.patch(`/reservations/${reservationId}`, payload);
   return unwrap<Reservation>(response, {} as Reservation);
 };
+
+/**
+ * 사용자가 직접 "방문 확정" 버튼을 눌러 예약을 VISITED 상태로 전환한다.
+ * 백엔드는 CONFIRMED 상태에서만 허용하며 ReservationVisitedEvent로 알림이 자동 발송된다.
+ */
+export const markReservationVisited = async (reservationId: number): Promise<void> => {
+  await api.patch(`/reservations/${reservationId}/visit`);
+};
