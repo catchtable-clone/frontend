@@ -21,8 +21,7 @@ import Tabs from '@/components/common/Tabs';
 import LoginRequired from '@/components/common/LoginRequired';
 import { formatDate } from '@/lib/utils';
 import { useReservationsQuery, useCancelReservationMutation } from '@/lib/reservationQuery';
-import { confirmPayment } from '@/lib/api/paymentApi';
-import { cancelReservation as cancelReservationApi } from '@/lib/reservationApi';
+import { usePayment } from '@/hooks/usePayment';
 import {
   useCreateReviewMutation,
   useMyReviewsQuery,
@@ -55,6 +54,7 @@ function ReservationCard({
   onEditReview,
   isReviewed,
   onPayment,
+  isPaymentProcessing,
 }: {
   reservation: Reservation;
   onCancel: (id: number) => void;
@@ -62,6 +62,7 @@ function ReservationCard({
   onEditReview: (reservation: Reservation) => void;
   isReviewed: boolean;
   onPayment: (reservation: Reservation) => void;
+  isPaymentProcessing: boolean;
 }) {
   const router = useRouter();
   const { label, color, bg } = STATUS_CONFIG[reservation.status] || STATUS_CONFIG['CONFIRMED'];
@@ -112,10 +113,11 @@ function ReservationCard({
       {isPending && reservation.orderId && (
         <button
           onClick={() => onPayment(reservation)}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 py-2.5 text-sm font-semibold text-white hover:bg-orange-600"
+          disabled={isPaymentProcessing}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
         >
           <CreditCard size={15} />
-          결제 진행하기 (10,000원)
+          {isPaymentProcessing ? '결제 진행 중...' : '결제 진행하기 (10,000원)'}
         </button>
       )}
 
@@ -182,6 +184,7 @@ export default function ReservationsPage() {
   const userId = useAuthStore((s) => s.userId) ?? 0;
   const { data: reservations = [], isLoading } = useReservationsQuery();
   const { mutate: cancelReservation } = useCancelReservationMutation();
+  const { processPayment, isProcessing: isPaymentProcessing } = usePayment();
   const { data: vacancies = [], isLoading: isVacancyLoading } = useMyVacanciesQuery();
   const { mutate: cancelVacancy } = useCancelVacancyMutation();
   const [cancelTarget, setCancelTarget] = useState<number | null>(null);
@@ -215,35 +218,9 @@ export default function ReservationsPage() {
     setCancelTarget(id);
   };
 
-  const handlePayment = async (reservation: Reservation) => {
+  const handlePayment = (reservation: Reservation) => {
     if (!reservation.orderId) return;
-    const { id: reservationId, orderId } = reservation;
-
-    try {
-      // @ts-expect-error SDK 타입 버그
-      const PortOne = await import('@portone/browser-sdk/v2');
-      const paymentResult = await PortOne.requestPayment({
-        storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID!,
-        channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY!,
-        paymentId: orderId,
-        orderName: '예약 예치금',
-        totalAmount: 10000,
-        currency: 'CURRENCY_KRW',
-        payMethod: 'EASY_PAY',
-        easyPay: { easyPayProvider: 'KAKAOPAY' },
-      });
-
-      if (paymentResult?.code != null) {
-        await cancelReservationApi(reservationId).catch(() => {});
-        toast.error('결제가 취소되었습니다. 예약이 취소됩니다.');
-        return;
-      }
-
-      await confirmPayment(orderId);
-      toast.success('예약이 확정되었습니다!');
-    } catch {
-      toast.error('결제 처리 중 오류가 발생했습니다.');
-    }
+    processPayment({ reservationId: reservation.id, orderId: reservation.orderId, amount: 10000 });
   };
 
   const confirmCancel = () => {
@@ -421,6 +398,7 @@ export default function ReservationsPage() {
                   onEditReview={openEditReviewModal}
                   isReviewed={reviewedReservationIds.has(reservation.id)}
                   onPayment={handlePayment}
+                  isPaymentProcessing={isPaymentProcessing}
                 />
               ))
             )}

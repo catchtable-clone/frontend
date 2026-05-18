@@ -5,9 +5,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Send, Bot, X, Minus, Loader2, CreditCard } from 'lucide-react';
 import { useChatMessagesQuery } from '@/lib/chatQuery';
 import { sendChatMessage } from '@/lib/api/chat';
-import { confirmPayment } from '@/lib/api/paymentApi';
-import { cancelReservation } from '@/lib/reservationApi';
 import { useAuthStore } from '@/stores/authStore';
+import { usePayment } from '@/hooks/usePayment';
 import { useQueryClient } from '@tanstack/react-query';
 import { CHAT_MESSAGES_QUERY_KEY } from '@/lib/chatQuery';
 import type { ChatMessage, PendingPaymentInfo } from '@/types/store';
@@ -27,6 +26,7 @@ export default function FloatingChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationDenied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -49,7 +49,9 @@ export default function FloatingChat() {
   const [showGuide, setShowGuide] = useState(false);
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
   const [pendingPayment, setPendingPayment] = useState<PendingPaymentInfo | null>(null);
-  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
+  const { processPayment, isProcessing: isPaymentProcessing } = usePayment({
+    onSettled: () => setPendingPayment(null),
+  });
 
   const { accessToken, userId } = useAuthStore();
   const isLoggedIn = !!accessToken;
@@ -156,15 +158,15 @@ export default function FloatingChat() {
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen || coords) return;
-    // TODO: 테스트용 하드코딩 좌표 — 실 배포 시 아래 주석 제거 후 geolocation으로 교체
+    if (!isOpen || coords || locationDenied) return;
+    // TODO: 개발 환경 테스트용 하드코딩 좌표 — main 머지 전 아래 geolocation으로 교체
     setCoords({ latitude: 37.491750, longitude: 127.007696 });
     // navigator.geolocation?.getCurrentPosition(
     //   (pos) => setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-    //   () => {},
+    //   () => setLocationDenied(true),
     //   { timeout: 5000 },
     // );
-  }, [isOpen, coords]);
+  }, [isOpen, coords, locationDenied]);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || !isLoggedIn || isLoading) return;
@@ -194,43 +196,9 @@ export default function FloatingChat() {
     sendMessage(input);
   };
 
-  const handlePayment = async () => {
-    if (!pendingPayment || isPaymentProcessing) return;
-    setIsPaymentProcessing(true);
-
-    const { reservationId, orderId, amount } = pendingPayment;
-
-    try {
-      // @ts-expect-error SDK 타입 버그
-      const PortOne = await import('@portone/browser-sdk/v2');
-      const paymentResult = await PortOne.requestPayment({
-        storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID!,
-        channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY!,
-        paymentId: orderId,
-        orderName: '예약 예치금',
-        totalAmount: amount,
-        currency: 'CURRENCY_KRW',
-        payMethod: 'EASY_PAY',
-        easyPay: { easyPayProvider: 'KAKAOPAY' },
-      });
-
-      if (paymentResult?.code != null) {
-        await cancelReservation(reservationId).catch(() => {});
-        toast.error('결제가 취소되었습니다. 예약이 취소됩니다.');
-        setPendingPayment(null);
-        queryClient.invalidateQueries({ queryKey: ['reservations', userId] });
-        return;
-      }
-
-      await confirmPayment(orderId);
-      toast.success('예약이 확정되었습니다!');
-      setPendingPayment(null);
-      queryClient.invalidateQueries({ queryKey: ['reservations', userId] });
-    } catch {
-      toast.error('결제 처리 중 오류가 발생했습니다.');
-    } finally {
-      setIsPaymentProcessing(false);
-    }
+  const handlePayment = () => {
+    if (!pendingPayment) return;
+    processPayment(pendingPayment);
   };
 
   const renderInline = (text: string, baseKey: number) =>
@@ -433,16 +401,30 @@ export default function FloatingChat() {
           <div className="border-t border-gray-200 bg-white px-4 pb-3 pt-2">
             {isLoggedIn && (
               <div className="mb-2 flex flex-wrap gap-1.5">
-                {QUICK_PROMPTS.map((prompt) => (
-                  <button
-                    key={prompt}
-                    onClick={() => sendMessage(prompt)}
-                    disabled={isLoading}
-                    className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-600 hover:border-orange-400 hover:text-orange-500 disabled:opacity-40"
-                  >
-                    {prompt}
-                  </button>
-                ))}
+                {QUICK_PROMPTS.map((prompt) => {
+                  const isLocation = prompt === '내 주변 맛집 추천해줘';
+                  const handleClick = () => {
+                    if (isLocation && locationDenied) {
+                      toast.error('위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.');
+                      return;
+                    }
+                    if (isLocation && !coords) {
+                      toast('위치 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+                      return;
+                    }
+                    sendMessage(prompt);
+                  };
+                  return (
+                    <button
+                      key={prompt}
+                      onClick={handleClick}
+                      disabled={isLoading}
+                      className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-600 hover:border-orange-400 hover:text-orange-500 disabled:opacity-40"
+                    >
+                      {prompt}
+                    </button>
+                  );
+                })}
               </div>
             )}
             <form onSubmit={handleSubmit} className="flex items-center gap-2">
