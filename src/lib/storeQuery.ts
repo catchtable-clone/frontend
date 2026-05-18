@@ -56,6 +56,7 @@ export const useNearbyStoresInfiniteQuery = (
   latitude: number,
   longitude: number,
   size = 10,
+  enabled = true,
 ) => {
   return useInfiniteQuery({
     queryKey: ['nearbyStores', latitude, longitude, size],
@@ -63,6 +64,7 @@ export const useNearbyStoresInfiniteQuery = (
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) =>
       lastPage.length === size ? allPages.length : undefined,
+    enabled,
   });
 };
 

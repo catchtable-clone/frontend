@@ -155,6 +155,10 @@ export default function StoreDetail() {
     router.push(changeFrom ? `${url}&changeFrom=${changeFrom}` : url);
   };
 
+  const today = new Date();
+  const toDate = new Date();
+  toDate.setDate(today.getDate() + 89);
+
   return (
     <Fragment key={`store-${id}`}>
       <Header title={store.storeName} showBack />
@@ -433,7 +437,9 @@ export default function StoreDetail() {
                   setSelectedTimeIsFull(false);
                 }
               }}
-              disabled={{ before: new Date() }}
+              disabled={{ before: new Date(), after: toDate }}
+              fromMonth={today}
+              toMonth={toDate}
               fixedWeeks
               styles={{
                 root: { width: '100%' },
