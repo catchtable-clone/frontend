@@ -2,7 +2,7 @@
 
 import { useState, Fragment } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Star, Clock, MapPin, Heart, Check, Plus } from 'lucide-react';
+import { Star, Clock, MapPin, Heart, Check, Plus, Bell } from 'lucide-react';
 import { DayPicker } from 'react-day-picker';
 import { ko } from 'react-day-picker/locale';
 import 'react-day-picker/style.css';
@@ -15,6 +15,7 @@ import FolderFormModal from '@/components/common/FolderFormModal';
 import type { StoreRemain } from '@/types/store';
 import { useStoreDetailQuery, useStoreMenusQuery, useStoreReviewsQuery, useStoreTimesQuery } from '@/lib/storeQuery';
 import { useCreateVacancyMutation } from '@/lib/vacancyQuery';
+import { useDragScroll } from '@/hooks/useDragScroll';
 import {
   useBookmarkFoldersQuery,
   useCreateBookmarkFolderMutation,
@@ -35,6 +36,18 @@ function getNextDays(count: number) {
   return days;
 }
 
+function getTimeButtonStyles(isSelected: boolean, isSelectedFull: boolean, isFull: boolean) {
+  if (isSelected) {
+    return isSelectedFull
+      ? 'border-blue-500 bg-blue-50 text-blue-500'
+      : 'border-orange-500 bg-orange-50 text-orange-500';
+  }
+  if (isFull) {
+    return 'border-dashed border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500';
+  }
+  return 'border-gray-200 text-gray-700 hover:border-orange-500 hover:text-orange-500';
+}
+
 export default function StoreDetail() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -49,6 +62,7 @@ export default function StoreDetail() {
   const { data: menus = [], isLoading: isMenuLoading } = useStoreMenusQuery(id);
   const { data: reviews = [], isLoading: isReviewLoading } = useStoreReviewsQuery(id);
   const { mutate: createVacancy, isPending: isVacancyPending } = useCreateVacancyMutation();
+  const dateStripRef = useDragScroll<HTMLDivElement>();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedRemainId, setSelectedRemainId] = useState<number | null>(null);
@@ -100,6 +114,17 @@ export default function StoreDetail() {
     days.map(d => d.toDateString()).filter(dStr => store?.remainDates ? !availableDates.has(dStr) : false)
   );
   const isSelectedFullyBooked = fullyBookedDates.has(selectedDate.toDateString());
+
+  const hasAvailableSlot = times.some((t) => t.remainTeam > 0);
+  const hasFullSlot = times.some((t) => t.remainTeam <= 0);
+  const slotState: 'mixed' | 'reserve' | 'vacancy' | 'unknown' =
+    times.length === 0
+      ? 'unknown'
+      : hasAvailableSlot && hasFullSlot
+        ? 'mixed'
+        : hasAvailableSlot
+          ? 'reserve'
+          : 'vacancy';
 
   if (!id || isLoading) {
     return (
@@ -235,7 +260,7 @@ export default function StoreDetail() {
               휴업중인 매장은 예약이 불가합니다.
             </p>
           ) : (
-            <div className="flex gap-2 overflow-x-auto">
+            <div ref={dateStripRef} className="flex gap-2 overflow-x-auto select-none">
               {days.map((date) => {
                 const { month, day, weekday } = formatDateParts(date);
                 const isToday =
@@ -389,6 +414,13 @@ export default function StoreDetail() {
           >
             현재 휴업중입니다
           </button>
+        ) : slotState === 'unknown' ? (
+          <button
+            disabled
+            className="w-full cursor-not-allowed rounded-lg bg-gray-300 py-3 text-sm font-semibold text-white"
+          >
+            로딩중...
+          </button>
         ) : (
           <button
             onClick={handleReserveClick}
@@ -396,7 +428,11 @@ export default function StoreDetail() {
               isSelectedFullyBooked ? 'bg-blue-500 hover:bg-blue-600' : 'bg-orange-500 hover:bg-orange-600'
             }`}
           >
-            {isSelectedFullyBooked ? '시간대 선택하고 빈자리 알림 받기' : '예약하기'}
+            {slotState === 'mixed'
+              ? '예약 또는 빈자리 알림'
+              : slotState === 'vacancy'
+                ? '시간대 선택하고 빈자리 알림 받기'
+                : '예약하기'}
           </button>
         )}
       </div>
@@ -442,8 +478,12 @@ export default function StoreDetail() {
             {/* 시간 선택 */}
             <div className="mb-5 mt-2">
               <p className="mb-2 px-1 text-base font-medium text-gray-700">
-                {selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일 예약
-                가능 시간
+                {selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일{' '}
+                {slotState === 'mixed'
+                  ? '예약 또는 빈자리 알림'
+                  : slotState === 'vacancy'
+                    ? '빈자리 알림 받을 시간'
+                    : '예약 가능 시간'}
               </p>
               <div className="grid grid-cols-5 gap-2">
                 {isTimesLoading ? (
@@ -462,14 +502,9 @@ export default function StoreDetail() {
                           setSelectedTimeIsFull(isFull);
                         }
                       }}
-                      className={`rounded-lg border py-2 text-sm font-medium ${
-                        selectedTime === displayTime
-                          ? selectedTimeIsFull ? 'border-blue-500 bg-blue-50 text-blue-500' : 'border-orange-500 bg-orange-50 text-orange-500'
-                          : isFull
-                          ? 'border-gray-100 bg-gray-50 text-gray-400'
-                          : 'border-gray-200 text-gray-700 hover:border-orange-500 hover:text-orange-500'
-                      }`}
+                      className={`flex items-center justify-center gap-1 rounded-lg border py-2 text-sm font-medium ${getTimeButtonStyles(selectedTime === displayTime, selectedTimeIsFull, isFull)}`}
                     >
+                      {isFull && <Bell size={12} />}
                       {displayTime}
                     </button>
                     );
