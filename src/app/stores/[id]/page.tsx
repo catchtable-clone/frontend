@@ -80,7 +80,7 @@ export default function StoreDetail() {
   const formattedSelectedDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
   const { data: times = [], isLoading: isTimesLoading } = useStoreTimesQuery(id, formattedSelectedDate);
 
-  const days = getNextDays(14);
+  const days = getNextDays(90);
   const remainData = store?.remainDates || [];
 
   const availableDates = new Set(
@@ -154,6 +154,11 @@ export default function StoreDetail() {
     const url = `/reservation?storeId=${store?.storeId || id}&date=${formattedSelectedDate}&time=${selectedTime}&remainId=${selectedRemainId}`;
     router.push(changeFrom ? `${url}&changeFrom=${changeFrom}` : url);
   };
+
+  const MAX_RESERVATION_DAYS = 90;
+  const today = new Date();
+  const toDate = new Date();
+  toDate.setDate(today.getDate() + MAX_RESERVATION_DAYS - 1);
 
   return (
     <Fragment key={`store-${id}`}>
@@ -433,7 +438,9 @@ export default function StoreDetail() {
                   setSelectedTimeIsFull(false);
                 }
               }}
-              disabled={{ before: new Date() }}
+              disabled={{ before: today, after: toDate }}
+              fromMonth={today}
+              toMonth={toDate}
               fixedWeeks
               styles={{
                 root: { width: '100%' },

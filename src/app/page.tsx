@@ -18,14 +18,39 @@ import {
   type ActiveCouponTemplate,
 } from '@/lib/api/coupons';
 import { useAuthStore } from '@/stores/authStore';
-
-// 강남역 좌표 (위치 정보 미공유 시 기준점)
-const GANGNAM_LAT = 37.4979;
-const GANGNAM_LNG = 127.0276;
+import { GANGNAM_LAT, GANGNAM_LNG } from '@/lib/constants';
 
 export default function Home() {
   const userId = useAuthStore((s) => s.userId);
   const queryClient = useQueryClient();
+
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // 위치 정보 가져오기
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCoords({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setLocationError(null);
+        },
+        () => {
+          // 사용자가 권한을 거부했거나 오류 발생 시
+          setLocationError('위치 정보를 가져올 수 없어 강남역 기준으로 표시됩니다.');
+        },
+        { timeout: 10000 },
+      );
+    } else {
+      setLocationError('위치 정보를 지원하지 않는 브라우저입니다.');
+    }
+  }, []); // 컴포넌트 마운트 시 한 번만 실행
+
+  const latitude = coords?.lat ?? GANGNAM_LAT;
+  const longitude = coords?.lng ?? GANGNAM_LNG;
 
   const { data: popularStores = [], isLoading: isPopularLoading } = usePopularStoresQuery(10);
   const {
@@ -34,7 +59,7 @@ export default function Home() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useNearbyStoresInfiniteQuery(GANGNAM_LAT, GANGNAM_LNG, 10);
+  } = useNearbyStoresInfiniteQuery(latitude, longitude, 10, !!coords || !!locationError);
 
   const nearbyStores = nearbyData?.pages.flat() ?? [];
 
@@ -219,8 +244,10 @@ export default function Home() {
         {/* 내 주변 매장 */}
         <section className="px-4 py-4">
           <h2 className="mb-1 text-base font-semibold text-gray-900">내 주변 매장</h2>
-          <p className="mb-2 text-xs text-gray-400">강남역 기준 가까운 매장</p>
-          {isNearbyLoading ? (
+          <p className="mb-2 text-xs text-gray-400">
+            {coords ? '내 위치 기준 가까운 매장' : locationError || '위치 정보를 가져오는 중...'}
+          </p>
+          {isNearbyLoading && nearbyStores.length === 0 ? (
             <p className="py-4 text-center text-sm text-gray-400">매장을 불러오는 중...</p>
           ) : nearbyStores.length > 0 ? (
             <>

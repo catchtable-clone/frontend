@@ -30,6 +30,13 @@ import {
 import { getBookmarksInFolder, type BookmarkResponse } from '@/lib/bookmarkApi';
 import { useAuthStore } from '@/stores/authStore';
 import type { StoreSummary } from '@/types/store';
+import {
+  GANGNAM_LAT,
+  GANGNAM_LNG,
+  ZOOM_LEVEL_DEFAULT,
+  ZOOM_LEVEL_DETAIL,
+  ZOOM_LEVEL_NEARBY,
+} from '@/lib/constants';
 
 /**
  * 마커 단위 = 좌표가 동일한 매장 그룹.
@@ -78,6 +85,37 @@ function MapContent() {
   const targetLat = searchParams.get('lat');
   const targetLng = searchParams.get('lng');
   const targetStoreId = searchParams.get('storeId');
+
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLocationReady, setIsLocationReady] = useState(false);
+
+  useEffect(() => {
+    // If URL specifies a location, we don't need the user's current location.
+    if (targetLat && targetLng) {
+      setIsLocationReady(true);
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCoords({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setIsLocationReady(true);
+        },
+        () => {
+          // On error or denial, proceed with default location.
+          setIsLocationReady(true);
+        },
+        { timeout: 10000 },
+      );
+    } else {
+      // Geolocation not supported
+      setIsLocationReady(true);
+    }
+  }, [targetLat, targetLng]);
 
   // ===== 데이터 — 매장 + 북마크 폴더 + 폴더별 북마크 =====
   const { accessToken } = useAuthStore();
@@ -381,12 +419,13 @@ function MapContent() {
   }, []);
 
   const initMap = useCallback(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !isLocationReady) return;
 
     kakao.maps.load(() => {
-      const centerLat = targetLat ? parseFloat(targetLat) : 37.4979;
-      const centerLng = targetLng ? parseFloat(targetLng) : 127.0276;
-      const zoomLevel = targetStoreId ? 1 : 7;
+      // 우선순위: URL 파라미터 > 현재 위치 > 기본값(강남)
+      const centerLat = targetLat ? parseFloat(targetLat) : coords?.lat ?? GANGNAM_LAT;
+      const centerLng = targetLng ? parseFloat(targetLng) : coords?.lng ?? GANGNAM_LNG;
+      const zoomLevel = targetStoreId ? ZOOM_LEVEL_DETAIL : coords ? ZOOM_LEVEL_NEARBY : ZOOM_LEVEL_DEFAULT;
       const center = new kakao.maps.LatLng(centerLat, centerLng);
 
       if (mapInstanceRef.current) {
@@ -439,18 +478,17 @@ function MapContent() {
         });
       }
     });
-  }, [targetLat, targetLng, targetStoreId, readBoundsFromMap]);
+  }, [targetLat, targetLng, targetStoreId, readBoundsFromMap, coords, isLocationReady]);
 
   useEffect(() => {
-    if (sdkLoaded) {
+    if (sdkLoaded && isLocationReady) {
       initMap();
       return;
     }
     if (typeof window !== 'undefined' && window.kakao?.maps) {
       setSdkLoaded(true);
-      initMap();
     }
-  }, [sdkLoaded, initMap]);
+  }, [sdkLoaded, isLocationReady, initMap]);
 
   /**
    * stores 응답이 갱신될 때마다 마커를 재생성.
