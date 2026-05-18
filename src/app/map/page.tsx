@@ -30,6 +30,13 @@ import {
 import { getBookmarksInFolder, type BookmarkResponse } from '@/lib/bookmarkApi';
 import { useAuthStore } from '@/stores/authStore';
 import type { StoreSummary } from '@/types/store';
+import {
+  GANGNAM_LAT,
+  GANGNAM_LNG,
+  ZOOM_LEVEL_DEFAULT,
+  ZOOM_LEVEL_DETAIL,
+  ZOOM_LEVEL_NEARBY,
+} from '@/lib/constants';
 
 /**
  * 마커 단위 = 좌표가 동일한 매장 그룹.
@@ -89,19 +96,25 @@ function MapContent() {
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCoords({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setIsLocationReady(true);
-      },
-      () => {
-        // On error or denial, proceed with default location.
-        setIsLocationReady(true);
-      },
-    );
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCoords({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setIsLocationReady(true);
+        },
+        () => {
+          // On error or denial, proceed with default location.
+          setIsLocationReady(true);
+        },
+        { timeout: 10000 },
+      );
+    } else {
+      // Geolocation not supported
+      setIsLocationReady(true);
+    }
   }, [targetLat, targetLng]);
 
   // ===== 데이터 — 매장 + 북마크 폴더 + 폴더별 북마크 =====
@@ -410,9 +423,9 @@ function MapContent() {
 
     kakao.maps.load(() => {
       // 우선순위: URL 파라미터 > 현재 위치 > 기본값(강남)
-      const centerLat = targetLat ? parseFloat(targetLat) : coords?.lat ?? 37.4979;
-      const centerLng = targetLng ? parseFloat(targetLng) : coords?.lng ?? 127.0276;
-      const zoomLevel = targetStoreId ? 1 : coords ? 4 : 7;
+      const centerLat = targetLat ? parseFloat(targetLat) : coords?.lat ?? GANGNAM_LAT;
+      const centerLng = targetLng ? parseFloat(targetLng) : coords?.lng ?? GANGNAM_LNG;
+      const zoomLevel = targetStoreId ? ZOOM_LEVEL_DETAIL : coords ? ZOOM_LEVEL_NEARBY : ZOOM_LEVEL_DEFAULT;
       const center = new kakao.maps.LatLng(centerLat, centerLng);
 
       if (mapInstanceRef.current) {

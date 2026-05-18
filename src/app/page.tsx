@@ -18,10 +18,7 @@ import {
   type ActiveCouponTemplate,
 } from '@/lib/api/coupons';
 import { useAuthStore } from '@/stores/authStore';
-
-// 강남역 좌표 (위치 정보 미공유 시 기준점)
-const GANGNAM_LAT = 37.4979;
-const GANGNAM_LNG = 127.0276;
+import { GANGNAM_LAT, GANGNAM_LNG } from '@/lib/constants';
 
 export default function Home() {
   const userId = useAuthStore((s) => s.userId);
@@ -32,19 +29,24 @@ export default function Home() {
 
   useEffect(() => {
     // 위치 정보 가져오기
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCoords({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setLocationError(null);
-      },
-      () => {
-        // 사용자가 권한을 거부했거나 오류 발생 시
-        setLocationError('위치 정보를 가져올 수 없어 강남역 기준으로 표시됩니다.');
-      },
-    );
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCoords({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setLocationError(null);
+        },
+        () => {
+          // 사용자가 권한을 거부했거나 오류 발생 시
+          setLocationError('위치 정보를 가져올 수 없어 강남역 기준으로 표시됩니다.');
+        },
+        { timeout: 10000 },
+      );
+    } else {
+      setLocationError('위치 정보를 지원하지 않는 브라우저입니다.');
+    }
   }, []); // 컴포넌트 마운트 시 한 번만 실행
 
   const latitude = coords?.lat ?? GANGNAM_LAT;
