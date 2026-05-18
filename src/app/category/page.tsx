@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronDown, Check } from 'lucide-react';
 import Header from '@/components/common/Header';
@@ -24,8 +24,8 @@ function CategoryContent() {
     isFetchingNextPage,
   } = useStoresInfiniteQuery(
     {
-      category: selectedCategory ?? undefined,
-      district: selectedDistrict ?? undefined,
+      category: selectedCategory || undefined,
+      district: selectedDistrict || undefined,
     },
     10,
   );
@@ -56,14 +56,14 @@ function CategoryContent() {
     return qs ? `/category?${qs}` : '/category';
   };
 
-  const handleCategoryClick = (categoryEnum: string | null) => {
+  const handleCategoryClick = useCallback((categoryEnum: string | null) => {
     router.push(buildHref(categoryEnum, selectedDistrict));
-  };
+  }, [router, selectedDistrict]);
 
-  const handleDistrictClick = (districtEnum: string | null) => {
+  const handleDistrictClick = useCallback((districtEnum: string | null) => {
     router.push(buildHref(selectedCategory, districtEnum));
     setIsDistrictOpen(false);
-  };
+  }, [router, selectedCategory]);
 
   const categoryScrollRef = useDragScroll<HTMLDivElement>();
 

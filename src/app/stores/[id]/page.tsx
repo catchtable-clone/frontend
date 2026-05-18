@@ -36,6 +36,18 @@ function getNextDays(count: number) {
   return days;
 }
 
+function getTimeButtonStyles(isSelected: boolean, isSelectedFull: boolean, isFull: boolean) {
+  if (isSelected) {
+    return isSelectedFull
+      ? 'border-blue-500 bg-blue-50 text-blue-500'
+      : 'border-orange-500 bg-orange-50 text-orange-500';
+  }
+  if (isFull) {
+    return 'border-dashed border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500';
+  }
+  return 'border-gray-200 text-gray-700 hover:border-orange-500 hover:text-orange-500';
+}
+
 export default function StoreDetail() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -402,6 +414,13 @@ export default function StoreDetail() {
           >
             현재 휴업중입니다
           </button>
+        ) : slotState === 'unknown' ? (
+          <button
+            disabled
+            className="w-full cursor-not-allowed rounded-lg bg-gray-300 py-3 text-sm font-semibold text-white"
+          >
+            로딩중...
+          </button>
         ) : (
           <button
             onClick={handleReserveClick}
@@ -411,7 +430,7 @@ export default function StoreDetail() {
           >
             {slotState === 'mixed'
               ? '예약 또는 빈자리 알림'
-              : (slotState === 'vacancy' || (slotState === 'unknown' && isSelectedFullyBooked))
+              : slotState === 'vacancy'
                 ? '시간대 선택하고 빈자리 알림 받기'
                 : '예약하기'}
           </button>
@@ -483,13 +502,7 @@ export default function StoreDetail() {
                           setSelectedTimeIsFull(isFull);
                         }
                       }}
-                      className={`flex items-center justify-center gap-1 rounded-lg border py-2 text-sm font-medium ${
-                        selectedTime === displayTime
-                          ? selectedTimeIsFull ? 'border-blue-500 bg-blue-50 text-blue-500' : 'border-orange-500 bg-orange-50 text-orange-500'
-                          : isFull
-                          ? 'border-dashed border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500'
-                          : 'border-gray-200 text-gray-700 hover:border-orange-500 hover:text-orange-500'
-                      }`}
+                      className={`flex items-center justify-center gap-1 rounded-lg border py-2 text-sm font-medium ${getTimeButtonStyles(selectedTime === displayTime, selectedTimeIsFull, isFull)}`}
                     >
                       {isFull && <Bell size={12} />}
                       {displayTime}
