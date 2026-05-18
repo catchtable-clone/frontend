@@ -23,8 +23,8 @@ export function usePayment(options?: { onSettled?: () => void }) {
     setIsProcessing(true);
 
     try {
-      // @ts-expect-error SDK 타입 버그
       const PortOne = await import('@portone/browser-sdk/v2');
+      // @ts-expect-error SDK 타입 버그 (alipayPlus required but unused)
       const paymentResult = await PortOne.requestPayment({
         storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID!,
         channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY!,
