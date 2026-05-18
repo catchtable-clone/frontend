@@ -158,6 +158,7 @@ export default function StoreDetail() {
   const MAX_RESERVATION_DAYS = 90;
   const today = new Date();
   const toDate = new Date();
+  toDate.setDate(today.getDate() + 89);
   toDate.setDate(today.getDate() + MAX_RESERVATION_DAYS - 1);
 
   return (
@@ -438,6 +439,7 @@ export default function StoreDetail() {
                   setSelectedTimeIsFull(false);
                 }
               }}
+              disabled={{ before: new Date(), after: toDate }}
               disabled={{ before: today, after: toDate }}
               fromMonth={today}
               toMonth={toDate}
@@ -478,30 +480,49 @@ export default function StoreDetail() {
                   <p className="col-span-5 py-4 text-center text-sm text-gray-400">시간을 불러오는 중...</p>
                 ) : times.length > 0 ? (
                   times.map((t, index) => {
-                    const displayTime = t.remainTime || '';
-                    const isFull = t.remainTeam <= 0;
-                    return (
-                    <button
-                      key={t.remainId || `time-${index}`}
-                      onClick={() => {
-                        if (t.remainId) {
-                          setSelectedTime(displayTime);
-                          setSelectedRemainId(t.remainId);
-                          setSelectedTimeIsFull(isFull);
+                      const displayTime = t.remainTime || '';
+                      const isFull = t.remainTeam <= 0;
+
+                      const now = new Date();
+                      const isToday = selectedDate.toDateString() === now.toDateString();
+                      let isPast = false;
+
+                      if (isToday && displayTime) {
+                        const [hour, minute] = displayTime.split(':').map(Number);
+                        if (!isNaN(hour) && !isNaN(minute)) {
+                          const slotTime = new Date(selectedDate);
+                          slotTime.setHours(hour, minute, 0, 0);
+                          if (slotTime < now) {
+                            isPast = true;
+                          }
                         }
-                      }}
-                      className={`flex items-center justify-center gap-1 rounded-lg border py-2 text-sm font-medium ${
-                        selectedTime === displayTime
-                          ? selectedTimeIsFull ? 'border-blue-500 bg-blue-50 text-blue-500' : 'border-orange-500 bg-orange-50 text-orange-500'
-                          : isFull
-                          ? 'border-dashed border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500'
-                          : 'border-gray-200 text-gray-700 hover:border-orange-500 hover:text-orange-500'
-                      }`}
-                    >
-                      {isFull && <Bell size={12} />}
-                      {displayTime}
-                    </button>
-                    );
+                      }
+
+                      return (
+                        <button
+                          key={t.remainId || `time-${index}`}
+                          onClick={() => {
+                            if (t.remainId && !isPast) {
+                              setSelectedTime(displayTime);
+                              setSelectedRemainId(t.remainId);
+                              setSelectedTimeIsFull(isFull);
+                            }
+                          }}
+                          disabled={isPast}
+                          className={`flex items-center justify-center gap-1 rounded-lg border py-2 text-sm font-medium ${
+                            isPast
+                              ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                              : selectedTime === displayTime
+                                ? selectedTimeIsFull ? 'border-blue-500 bg-blue-50 text-blue-500' : 'border-orange-500 bg-orange-50 text-orange-500'
+                                : isFull
+                                  ? 'border-dashed border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500'
+                                  : 'border-gray-200 text-gray-700 hover:border-orange-500 hover:text-orange-500'
+                          }`}
+                        >
+                          {isFull && !isPast && <Bell size={12} />}
+                          {displayTime}
+                        </button>
+                      );
                   })
                 ) : (
                   <p className="col-span-5 py-4 text-center text-sm text-gray-400">예약 가능한 시간이 없습니다.</p>
