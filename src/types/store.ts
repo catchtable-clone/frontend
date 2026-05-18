@@ -118,6 +118,13 @@ export interface Reservation {
   guestCount: number;
   status: ReservationStatus;
   reviewId?: number;
+  orderId?: string; // PENDING 상태일 때 결제 진행에 사용
+}
+
+export interface PendingPaymentInfo {
+  reservationId: number;
+  orderId: string;
+  amount: number;
 }
 
 export interface Review {

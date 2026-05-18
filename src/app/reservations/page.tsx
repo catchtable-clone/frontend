@@ -10,6 +10,7 @@ import {
   Pencil,
   Check,
   Camera,
+  CreditCard,
 } from 'lucide-react';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
@@ -20,6 +21,8 @@ import Tabs from '@/components/common/Tabs';
 import LoginRequired from '@/components/common/LoginRequired';
 import { formatDate } from '@/lib/utils';
 import { useReservationsQuery, useCancelReservationMutation } from '@/lib/reservationQuery';
+import { confirmPayment } from '@/lib/api/paymentApi';
+import { cancelReservation as cancelReservationApi } from '@/lib/reservationApi';
 import {
   useCreateReviewMutation,
   useMyReviewsQuery,
@@ -51,19 +54,21 @@ function ReservationCard({
   onWriteReview,
   onEditReview,
   isReviewed,
+  onPayment,
 }: {
   reservation: Reservation;
   onCancel: (id: number) => void;
   onWriteReview: (reservation: Reservation) => void;
   onEditReview: (reservation: Reservation) => void;
   isReviewed: boolean;
+  onPayment: (reservation: Reservation) => void;
 }) {
   const router = useRouter();
-  // 백엔드에서 매핑되지 않은 상태값이 오더라도 UI가 터지지 않도록 안전한 폴백(fallback)을 추가합니다.
   const { label, color, bg } = STATUS_CONFIG[reservation.status] || STATUS_CONFIG['CONFIRMED'];
+  const isPending = reservation.status === 'PENDING';
   const isUpcoming = reservation.status === 'PENDING' || reservation.status === 'CONFIRMED';
   const isVisited = reservation.status === 'VISITED';
-  const hasReview = isReviewed; // 백엔드 응답이 아닌 프론트엔드 교차 검증 결과만 사용
+  const hasReview = isReviewed;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -103,9 +108,20 @@ function ReservationCard({
         </div>
       </div>
 
+      {/* 결제 진행 버튼 — PENDING 상태에서만 표시 */}
+      {isPending && reservation.orderId && (
+        <button
+          onClick={() => onPayment(reservation)}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 py-2.5 text-sm font-semibold text-white hover:bg-orange-600"
+        >
+          <CreditCard size={15} />
+          결제 진행하기 (10,000원)
+        </button>
+      )}
+
       {/* 액션 버튼 */}
       {isUpcoming && (
-        <div className="mt-4 flex gap-2">
+        <div className="mt-2 flex gap-2">
           <button
             onClick={() =>
               router.push(
@@ -197,6 +213,37 @@ export default function ReservationsPage() {
 
   const handleCancel = (id: number) => {
     setCancelTarget(id);
+  };
+
+  const handlePayment = async (reservation: Reservation) => {
+    if (!reservation.orderId) return;
+    const { id: reservationId, orderId } = reservation;
+
+    try {
+      // @ts-expect-error SDK 타입 버그
+      const PortOne = await import('@portone/browser-sdk/v2');
+      const paymentResult = await PortOne.requestPayment({
+        storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID!,
+        channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY!,
+        paymentId: orderId,
+        orderName: '예약 예치금',
+        totalAmount: 10000,
+        currency: 'CURRENCY_KRW',
+        payMethod: 'EASY_PAY',
+        easyPay: { easyPayProvider: 'KAKAOPAY' },
+      });
+
+      if (paymentResult?.code != null) {
+        await cancelReservationApi(reservationId).catch(() => {});
+        toast.error('결제가 취소되었습니다. 예약이 취소됩니다.');
+        return;
+      }
+
+      await confirmPayment(orderId);
+      toast.success('예약이 확정되었습니다!');
+    } catch {
+      toast.error('결제 처리 중 오류가 발생했습니다.');
+    }
   };
 
   const confirmCancel = () => {
@@ -373,6 +420,7 @@ export default function ReservationsPage() {
                   onWriteReview={openReviewModal}
                   onEditReview={openEditReviewModal}
                   isReviewed={reviewedReservationIds.has(reservation.id)}
+                  onPayment={handlePayment}
                 />
               ))
             )}
