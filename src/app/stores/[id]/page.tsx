@@ -409,13 +409,11 @@ export default function StoreDetail() {
               isSelectedFullyBooked ? 'bg-blue-500 hover:bg-blue-600' : 'bg-orange-500 hover:bg-orange-600'
             }`}
           >
-            {slotState === 'unknown'
-              ? (isSelectedFullyBooked ? '시간대 선택하고 빈자리 알림 받기' : '예약하기')
-              : slotState === 'mixed'
-                ? '예약 또는 빈자리 알림'
-                : slotState === 'vacancy'
-                  ? '시간대 선택하고 빈자리 알림 받기'
-                  : '예약하기'}
+            {slotState === 'mixed'
+              ? '예약 또는 빈자리 알림'
+              : (slotState === 'vacancy' || (slotState === 'unknown' && isSelectedFullyBooked))
+                ? '시간대 선택하고 빈자리 알림 받기'
+                : '예약하기'}
           </button>
         )}
       </div>

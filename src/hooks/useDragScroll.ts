@@ -19,7 +19,7 @@ export function useDragScroll<T extends HTMLElement>() {
     const onMouseDown = (e: MouseEvent) => {
       isDown = true;
       hasMoved = false;
-      startX = e.pageX - el.offsetLeft;
+      startX = e.pageX;
       scrollLeftStart = el.scrollLeft;
       el.style.cursor = 'grabbing';
     };
@@ -31,7 +31,7 @@ export function useDragScroll<T extends HTMLElement>() {
 
     const onMouseMove = (e: MouseEvent) => {
       if (!isDown) return;
-      const x = e.pageX - el.offsetLeft;
+      const x = e.pageX;
       const walk = x - startX;
       if (Math.abs(walk) > 5) hasMoved = true;
       if (hasMoved) {
