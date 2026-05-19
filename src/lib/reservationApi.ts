@@ -37,6 +37,7 @@ interface ReservationApiResponse {
   remainTime: string;
   member: number;
   createdAt: string;
+  orderId?: string;
 }
 
 export interface ReservationCreateResponse {
@@ -73,6 +74,7 @@ export const getReservations = async (): Promise<Reservation[]> => {
     time: item.remainTime,
     guestCount: item.member,
     status: (item.status?.toUpperCase() ?? 'PENDING') as ReservationStatus,
+    orderId: item.orderId,
   }));
 };
 

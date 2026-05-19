@@ -30,7 +30,7 @@ export const useSendChatMessageMutation = () => {
   const userId = useAuthStore((s) => s.userId);
 
   return useMutation({
-    mutationFn: sendChatMessage,
+    mutationFn: (message: string) => sendChatMessage(message),
     // onMutate를 사용하여 사용자 메시지를 서버 응답 전에 즉시 UI에 표시 (낙관적 업데이트)
     onMutate: async (newMessageContent: string) => {
       // 진행중인 refetch를 취소합니다.

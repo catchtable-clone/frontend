@@ -10,6 +10,7 @@ import {
   Pencil,
   Check,
   Camera,
+  CreditCard,
 } from 'lucide-react';
 import Header from '@/components/common/Header';
 import BottomNav from '@/components/common/BottomNav';
@@ -20,6 +21,7 @@ import Tabs from '@/components/common/Tabs';
 import LoginRequired from '@/components/common/LoginRequired';
 import { formatDate } from '@/lib/utils';
 import { useReservationsQuery, useCancelReservationMutation } from '@/lib/reservationQuery';
+import { usePayment } from '@/hooks/usePayment';
 import {
   useCreateReviewMutation,
   useMyReviewsQuery,
@@ -51,19 +53,23 @@ function ReservationCard({
   onWriteReview,
   onEditReview,
   isReviewed,
+  onPayment,
+  isPaymentProcessing,
 }: {
   reservation: Reservation;
   onCancel: (id: number) => void;
   onWriteReview: (reservation: Reservation) => void;
   onEditReview: (reservation: Reservation) => void;
   isReviewed: boolean;
+  onPayment: (reservation: Reservation) => void;
+  isPaymentProcessing: boolean;
 }) {
   const router = useRouter();
-  // 백엔드에서 매핑되지 않은 상태값이 오더라도 UI가 터지지 않도록 안전한 폴백(fallback)을 추가합니다.
   const { label, color, bg } = STATUS_CONFIG[reservation.status] || STATUS_CONFIG['CONFIRMED'];
+  const isPending = reservation.status === 'PENDING';
   const isUpcoming = reservation.status === 'PENDING' || reservation.status === 'CONFIRMED';
   const isVisited = reservation.status === 'VISITED';
-  const hasReview = isReviewed; // 백엔드 응답이 아닌 프론트엔드 교차 검증 결과만 사용
+  const hasReview = isReviewed;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -103,9 +109,21 @@ function ReservationCard({
         </div>
       </div>
 
+      {/* 결제 진행 버튼 — PENDING 상태에서만 표시 */}
+      {isPending && reservation.orderId && (
+        <button
+          onClick={() => onPayment(reservation)}
+          disabled={isPaymentProcessing}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+        >
+          <CreditCard size={15} />
+          {isPaymentProcessing ? '결제 진행 중...' : '결제 진행하기 (10,000원)'}
+        </button>
+      )}
+
       {/* 액션 버튼 */}
       {isUpcoming && (
-        <div className="mt-4 flex gap-2">
+        <div className="mt-2 flex gap-2">
           <button
             onClick={() =>
               router.push(
@@ -166,6 +184,7 @@ export default function ReservationsPage() {
   const userId = useAuthStore((s) => s.userId) ?? 0;
   const { data: reservations = [], isLoading } = useReservationsQuery();
   const { mutate: cancelReservation } = useCancelReservationMutation();
+  const { processPayment, isProcessing: isPaymentProcessing } = usePayment();
   const { data: vacancies = [], isLoading: isVacancyLoading } = useMyVacanciesQuery();
   const { mutate: cancelVacancy } = useCancelVacancyMutation();
   const [cancelTarget, setCancelTarget] = useState<number | null>(null);
@@ -197,6 +216,11 @@ export default function ReservationsPage() {
 
   const handleCancel = (id: number) => {
     setCancelTarget(id);
+  };
+
+  const handlePayment = (reservation: Reservation) => {
+    if (!reservation.orderId) return;
+    processPayment({ reservationId: reservation.id, orderId: reservation.orderId, amount: 10000 });
   };
 
   const confirmCancel = () => {
@@ -373,6 +397,8 @@ export default function ReservationsPage() {
                   onWriteReview={openReviewModal}
                   onEditReview={openEditReviewModal}
                   isReviewed={reviewedReservationIds.has(reservation.id)}
+                  onPayment={handlePayment}
+                  isPaymentProcessing={isPaymentProcessing}
                 />
               ))
             )}
