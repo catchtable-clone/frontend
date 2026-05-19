@@ -24,16 +24,6 @@ import {
 import { useBookmarkedFolderForStore } from '@/hooks/useBookmarkedFolderForStore';
 import { useAuthStore } from '@/stores/authStore';
 import toast from 'react-hot-toast';
-function getNextDays(count: number) {
-  const days = [];
-  const today = new Date();
-  for (let i = 0; i < count; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() + i);
-    days.push(date);
-  }
-  return days;
-}
 
 export default function StoreDetail() {
   const router = useRouter();
@@ -79,41 +69,85 @@ export default function StoreDetail() {
   const formattedSelectedDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
   const { data: times = [], isLoading: isTimesLoading } = useStoreTimesQuery(id, formattedSelectedDate);
 
-  const monthsToDisplay = useMemo(() => {
-    const months = new Map<string, Date>();
-    const today = new Date();
-
-    for (let i = 0; i < 90; i++) {
-      const date = new Date();
-      date.setDate(today.getDate() + i);
-      const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
-      if (!months.has(monthKey)) {
-        months.set(monthKey, new Date(date.getFullYear(), date.getMonth(), 1));
-      }
-    }
-    return Array.from(months.values());
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
   }, []);
 
-  const days = getNextDays(90);
+  const calendarRange = useMemo(() => {
+    if (!store?.remainDates || store.remainDates.length === 0) {
+      return { fromMonth: today, toMonth: today };
+    }
+
+    const dates = store.remainDates
+      .map(rd => {
+        const parts = rd.date.split('-');
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
+        return new Date(year, month, day);
+      })
+      .filter((d): d is Date => d !== null);
+    
+    if (dates.length === 0) {
+      return { fromMonth: today, toMonth: today };
+    }
+
+    const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+    const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+
+    return {
+      fromMonth: minDate < today ? today : minDate,
+      toMonth: maxDate
+    };
+  }, [store?.remainDates, today]);
+
+  const monthsToDisplay = useMemo(() => {
+    if (!store?.remainDates) return [];
+
+    const months = new Map<string, Date>();
+    const today = new Date();
+    const firstDayOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    store.remainDates.forEach(rd => {
+      const parts = rd.date.split('-');
+      if (parts.length < 3) return;
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // month is 0-indexed
+
+      if (isNaN(year) || isNaN(month)) return;
+
+      const firstDayOfMonth = new Date(year, month, 1);
+
+      // Don't show past months
+      if (firstDayOfMonth < firstDayOfCurrentMonth) return;
+
+      const monthKey = `${year}-${month}`;
+      if (!months.has(monthKey)) {
+        months.set(monthKey, firstDayOfMonth);
+      }
+    });
+    return Array.from(months.values()).sort((a, b) => a.getTime() - b.getTime());
+  }, [store?.remainDates]);
   const remainData = store?.remainDates || [];
 
   const availableDates = new Set(
     remainData
       .filter((rd) => rd.available)
       .map((rd) => {
-        const dateVal = rd.date;
-        if (!dateVal) return '';
-        
-        const parts = dateVal.toString().split(/[-T\s/.]/);
-        const y = parts[0];
-        const m = parts[1];
-        const d = parts[2];
-        if (!y || !m || !d) return '';
-        return new Date(Number(y), Number(m) - 1, Number(d)).toDateString();
+        const parts = rd.date.split('-');
+        if (parts.length < 3) return '';
+        return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).toDateString();
       })
   );
   const fullyBookedDates = new Set(
-    days.map(d => d.toDateString()).filter(dStr => store?.remainDates ? !availableDates.has(dStr) : false)
+    remainData.filter(rd => !rd.available).map(rd => {
+      const parts = rd.date.split('-');
+      if (parts.length < 3) return '';
+      return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).toDateString();
+    })
   );
   const isSelectedFullyBooked = fullyBookedDates.has(selectedDate.toDateString());
 
@@ -169,11 +203,6 @@ export default function StoreDetail() {
     const url = `/reservation?storeId=${store?.storeId || id}&date=${formattedSelectedDate}&time=${selectedTime}&remainId=${selectedRemainId}`;
     router.push(changeFrom ? `${url}&changeFrom=${changeFrom}` : url);
   };
-
-  const MAX_RESERVATION_DAYS = 90;
-  const today = new Date();
-  const toDate = new Date();
-  toDate.setDate(today.getDate() + MAX_RESERVATION_DAYS - 1);
 
   return (
     <Fragment key={`store-${id}`}>
@@ -426,9 +455,9 @@ export default function StoreDetail() {
                   setSelectedTimeIsFull(false);
                 }
               }}
-              disabled={{ before: today, after: toDate }}
-              fromMonth={today}
-              toMonth={toDate}
+              disabled={{ before: today, after: calendarRange.toMonth }}
+              fromMonth={calendarRange.fromMonth}
+              toMonth={calendarRange.toMonth}
               fixedWeeks
               styles={{
                 root: { width: '100%' },
