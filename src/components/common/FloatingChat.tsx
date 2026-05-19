@@ -26,7 +26,7 @@ export default function FloatingChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [locationDenied] = useState(false);
+    const [locationDenied, setLocationDenied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -159,13 +159,11 @@ export default function FloatingChat() {
 
   useEffect(() => {
     if (!isOpen || coords || locationDenied) return;
-    // TODO: 개발 환경 테스트용 하드코딩 좌표 — main 머지 전 아래 geolocation으로 교체
-    setCoords({ latitude: 37.491750, longitude: 127.007696 });
-    // navigator.geolocation?.getCurrentPosition(
-    //   (pos) => setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-    //   () => setLocationDenied(true),
-    //   { timeout: 5000 },
-    // );
+    navigator.geolocation?.getCurrentPosition(
+      (pos) => setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+      () => setLocationDenied(true),
+      { timeout: 5000 },
+    );
   }, [isOpen, coords, locationDenied]);
 
   const sendMessage = useCallback(async (text: string) => {
