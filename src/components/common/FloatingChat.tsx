@@ -159,11 +159,13 @@ export default function FloatingChat() {
 
   useEffect(() => {
     if (!isOpen || coords || locationDenied) return;
-    navigator.geolocation?.getCurrentPosition(
-      (pos) => setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-      () => setLocationDenied(true),
-      { timeout: 5000 },
-    );
+    // TODO: 개발 환경 테스트용 하드코딩 좌표 — main 머지 전 아래 geolocation으로 교체
+    setCoords({ latitude: 37.4979, longitude: 127.0276 }); // 강남역 하드코딩
+    // navigator.geolocation?.getCurrentPosition(
+    //   (pos) => setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+    //   () => setLocationDenied(true),
+    //   { timeout: 5000 },
+    // );
   }, [isOpen, coords, locationDenied]);
 
   const sendMessage = useCallback(async (text: string) => {
