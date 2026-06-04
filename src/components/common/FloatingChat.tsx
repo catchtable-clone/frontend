@@ -26,7 +26,7 @@ export default function FloatingChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [locationDenied] = useState(false);
+    const [locationDenied, setLocationDenied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Fragment } from 'react';
+import { useState, Fragment, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Star, Clock, MapPin, Heart, Check, Plus, Bell } from 'lucide-react';
 import { DayPicker } from 'react-day-picker';
@@ -15,7 +15,6 @@ import FolderFormModal from '@/components/common/FolderFormModal';
 import type { StoreRemain } from '@/types/store';
 import { useStoreDetailQuery, useStoreMenusQuery, useStoreReviewsQuery, useStoreTimesQuery } from '@/lib/storeQuery';
 import { useCreateVacancyMutation } from '@/lib/vacancyQuery';
-import { useDragScroll } from '@/hooks/useDragScroll';
 import {
   useBookmarkFoldersQuery,
   useCreateBookmarkFolderMutation,
@@ -25,16 +24,6 @@ import {
 import { useBookmarkedFolderForStore } from '@/hooks/useBookmarkedFolderForStore';
 import { useAuthStore } from '@/stores/authStore';
 import toast from 'react-hot-toast';
-function getNextDays(count: number) {
-  const days = [];
-  const today = new Date();
-  for (let i = 0; i < count; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() + i);
-    days.push(date);
-  }
-  return days;
-}
 
 export default function StoreDetail() {
   const router = useRouter();
@@ -50,8 +39,8 @@ export default function StoreDetail() {
   const { data: menus = [], isLoading: isMenuLoading } = useStoreMenusQuery(id);
   const { data: reviews = [], isLoading: isReviewLoading } = useStoreReviewsQuery(id);
   const { mutate: createVacancy, isPending: isVacancyPending } = useCreateVacancyMutation();
-  const dateStripRef = useDragScroll<HTMLDivElement>();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [pickerMonth, setPickerMonth] = useState(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedRemainId, setSelectedRemainId] = useState<number | null>(null);
   const [selectedTimeIsFull, setSelectedTimeIsFull] = useState(false);
@@ -80,26 +69,85 @@ export default function StoreDetail() {
   const formattedSelectedDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
   const { data: times = [], isLoading: isTimesLoading } = useStoreTimesQuery(id, formattedSelectedDate);
 
-  const days = getNextDays(14);
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  const calendarRange = useMemo(() => {
+    if (!store?.remainDates || store.remainDates.length === 0) {
+      return { fromMonth: today, toMonth: today };
+    }
+
+    const dates = store.remainDates
+      .map(rd => {
+        const parts = rd.date.split('-');
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
+        return new Date(year, month, day);
+      })
+      .filter((d): d is Date => d !== null);
+    
+    if (dates.length === 0) {
+      return { fromMonth: today, toMonth: today };
+    }
+
+    const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+    const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+
+    return {
+      fromMonth: minDate < today ? today : minDate,
+      toMonth: maxDate
+    };
+  }, [store?.remainDates, today]);
+
+  const monthsToDisplay = useMemo(() => {
+    if (!store?.remainDates) return [];
+
+    const months = new Map<string, Date>();
+    const today = new Date();
+    const firstDayOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    store.remainDates.forEach(rd => {
+      const parts = rd.date.split('-');
+      if (parts.length < 3) return;
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // month is 0-indexed
+
+      if (isNaN(year) || isNaN(month)) return;
+
+      const firstDayOfMonth = new Date(year, month, 1);
+
+      // Don't show past months
+      if (firstDayOfMonth < firstDayOfCurrentMonth) return;
+
+      const monthKey = `${year}-${month}`;
+      if (!months.has(monthKey)) {
+        months.set(monthKey, firstDayOfMonth);
+      }
+    });
+    return Array.from(months.values()).sort((a, b) => a.getTime() - b.getTime());
+  }, [store?.remainDates]);
   const remainData = store?.remainDates || [];
 
   const availableDates = new Set(
     remainData
       .filter((rd) => rd.available)
       .map((rd) => {
-        const dateVal = rd.date;
-        if (!dateVal) return '';
-        
-        const parts = dateVal.toString().split(/[-T\s/.]/);
-        const y = parts[0];
-        const m = parts[1];
-        const d = parts[2];
-        if (!y || !m || !d) return '';
-        return new Date(Number(y), Number(m) - 1, Number(d)).toDateString();
+        const parts = rd.date.split('-');
+        if (parts.length < 3) return '';
+        return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).toDateString();
       })
   );
   const fullyBookedDates = new Set(
-    days.map(d => d.toDateString()).filter(dStr => store?.remainDates ? !availableDates.has(dStr) : false)
+    remainData.filter(rd => !rd.available).map(rd => {
+      const parts = rd.date.split('-');
+      if (parts.length < 3) return '';
+      return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).toDateString();
+    })
   );
   const isSelectedFullyBooked = fullyBookedDates.has(selectedDate.toDateString());
 
@@ -144,6 +192,7 @@ export default function StoreDetail() {
     setSelectedTime(null);
     setSelectedRemainId(null);
     setSelectedTimeIsFull(false);
+    setPickerMonth(selectedDate);
     setShowTimeModal(true);
   };
 
@@ -248,55 +297,26 @@ export default function StoreDetail() {
               휴업중인 매장은 예약이 불가합니다.
             </p>
           ) : (
-            <div ref={dateStripRef} className="flex gap-2 overflow-x-auto select-none">
-              {days.map((date) => {
-                const { month, day, weekday } = formatDateParts(date);
-                const isToday =
-                  date.toDateString() === new Date().toDateString();
-                const isSelected =
-                  date.toDateString() === selectedDate.toDateString();
-                const isFullyBooked = fullyBookedDates.has(
-                  date.toDateString(),
-                );
+            <div className="flex gap-2 overflow-x-auto select-none">
+              {monthsToDisplay.map((month) => {
+                const monthLabel = `${month.getMonth() + 1}월`;
                 return (
                   <button
-                    key={date.toISOString()}
-                    onClick={() => setSelectedDate(date)}
-                    className={`flex flex-shrink-0 flex-col items-center gap-1 rounded-lg border px-4 py-3 ${
-                      isSelected && isFullyBooked
-                        ? 'border-blue-400 bg-blue-50 text-blue-500'
-                        : isSelected
-                          ? 'border-orange-500 text-orange-500'
-                          : isFullyBooked
-                            ? 'border-gray-200 bg-gray-50 text-gray-400'
-                            : 'border-gray-200 hover:border-orange-500 hover:text-orange-500'
-                    }`}
+                    key={month.toISOString()}
+                    onClick={() => {
+                      const today = new Date();
+                      const firstDayOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
+                      const dateToSelect = (today.getFullYear() === month.getFullYear() && today.getMonth() === month.getMonth())
+                        ? today
+                        : firstDayOfMonth;
+
+                      setSelectedDate(dateToSelect);
+                      setPickerMonth(dateToSelect);
+                      setShowTimeModal(true);
+                    }}
+                    className="flex-shrink-0 rounded-full border bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:border-orange-500 hover:bg-orange-50"
                   >
-                    <span
-                      className={`text-xs ${
-                        isSelected && isFullyBooked
-                          ? 'text-blue-400'
-                          : isSelected
-                            ? 'text-orange-400'
-                            : 'text-gray-400'
-                      }`}
-                    >
-                      {isToday ? '오늘' : `${month}월`}
-                    </span>
-                    <span className="text-lg font-semibold">{day}</span>
-                    <span
-                      className={`text-xs ${
-                        isSelected && isFullyBooked
-                          ? 'text-blue-400'
-                          : isSelected
-                            ? 'text-orange-400'
-                            : isFullyBooked
-                              ? 'text-gray-400'
-                              : 'text-gray-500'
-                      }`}
-                    >
-                      {isFullyBooked ? '마감' : weekday}
-                    </span>
+                    {monthLabel}
                   </button>
                 );
               })}
@@ -425,6 +445,8 @@ export default function StoreDetail() {
             <DayPicker
               mode="single"
               locale={ko}
+              month={pickerMonth}
+              onMonthChange={setPickerMonth}
               selected={selectedDate}
               onSelect={(date) => {
                 if (date) {
@@ -433,7 +455,9 @@ export default function StoreDetail() {
                   setSelectedTimeIsFull(false);
                 }
               }}
-              disabled={{ before: new Date() }}
+              disabled={{ before: today, after: calendarRange.toMonth }}
+              fromMonth={calendarRange.fromMonth}
+              toMonth={calendarRange.toMonth}
               fixedWeeks
               styles={{
                 root: { width: '100%' },
@@ -471,30 +495,49 @@ export default function StoreDetail() {
                   <p className="col-span-5 py-4 text-center text-sm text-gray-400">시간을 불러오는 중...</p>
                 ) : times.length > 0 ? (
                   times.map((t, index) => {
-                    const displayTime = t.remainTime || '';
-                    const isFull = t.remainTeam <= 0;
-                    return (
-                    <button
-                      key={t.remainId || `time-${index}`}
-                      onClick={() => {
-                        if (t.remainId) {
-                          setSelectedTime(displayTime);
-                          setSelectedRemainId(t.remainId);
-                          setSelectedTimeIsFull(isFull);
+                      const displayTime = t.remainTime || '';
+                      const isFull = t.remainTeam <= 0;
+
+                      const now = new Date();
+                      const isToday = selectedDate.toDateString() === now.toDateString();
+                      let isPast = false;
+
+                      if (isToday && displayTime) {
+                        const [hour, minute] = displayTime.split(':').map(Number);
+                        if (!isNaN(hour) && !isNaN(minute)) {
+                          const slotTime = new Date(selectedDate);
+                          slotTime.setHours(hour, minute, 0, 0);
+                          if (slotTime < now) {
+                            isPast = true;
+                          }
                         }
-                      }}
-                      className={`flex items-center justify-center gap-1 rounded-lg border py-2 text-sm font-medium ${
-                        selectedTime === displayTime
-                          ? selectedTimeIsFull ? 'border-blue-500 bg-blue-50 text-blue-500' : 'border-orange-500 bg-orange-50 text-orange-500'
-                          : isFull
-                          ? 'border-dashed border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500'
-                          : 'border-gray-200 text-gray-700 hover:border-orange-500 hover:text-orange-500'
-                      }`}
-                    >
-                      {isFull && <Bell size={12} />}
-                      {displayTime}
-                    </button>
-                    );
+                      }
+
+                      return (
+                        <button
+                          key={t.remainId || `time-${index}`}
+                          onClick={() => {
+                            if (t.remainId && !isPast) {
+                              setSelectedTime(displayTime);
+                              setSelectedRemainId(t.remainId);
+                              setSelectedTimeIsFull(isFull);
+                            }
+                          }}
+                          disabled={isPast}
+                          className={`flex items-center justify-center gap-1 rounded-lg border py-2 text-sm font-medium ${
+                            isPast
+                              ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                              : selectedTime === displayTime
+                                ? selectedTimeIsFull ? 'border-blue-500 bg-blue-50 text-blue-500' : 'border-orange-500 bg-orange-50 text-orange-500'
+                                : isFull
+                                  ? 'border-dashed border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500'
+                                  : 'border-gray-200 text-gray-700 hover:border-orange-500 hover:text-orange-500'
+                          }`}
+                        >
+                          {isFull && !isPast && <Bell size={12} />}
+                          {displayTime}
+                        </button>
+                      );
                   })
                 ) : (
                   <p className="col-span-5 py-4 text-center text-sm text-gray-400">예약 가능한 시간이 없습니다.</p>
